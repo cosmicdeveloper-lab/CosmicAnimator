@@ -18,12 +18,17 @@ A theme-aware, Manim-based animation generator for short-form, neon-styled techn
 ## 🏗 Architecture (Mermaid)
 
 ```mermaid
----
-config:
-  layout: elk
-  look: handDrawn
----
-flowchart LR
+%%{init: {
+  "flowchart": {
+    "defaultRenderer": "elk",
+    "useMaxWidth": true,
+    "htmlLabels": true
+  },
+  "themeVariables": {
+    "handDrawnFamily": "handDrawn"
+  }
+}}%%
+flowchart TB
  subgraph Core["Core"]
         C0["constants.py"]
         T0["theme.py"]
@@ -100,7 +105,6 @@ flowchart LR
     CoreStart -.- AdaptersStart
     AdaptersStart -.- ApplicationStart
     ApplicationStart -.- InterfacesStart
-    style ST2 stroke:#424242
     style Style stroke:#AA00FF
     style Transitions stroke:#AA00FF
     style Actions stroke:#AA00FF
