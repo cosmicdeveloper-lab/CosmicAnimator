@@ -54,11 +54,6 @@ videos/
 !docs/diagrams/architecture.svg
 *.pdf
 
-# Generated scenes & work dir
-work/
-generated_scene.py
-scene_generated.py
-
 # --------------------------------
 # Audio / Narration
 # --------------------------------
