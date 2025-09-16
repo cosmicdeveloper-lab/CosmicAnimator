@@ -1,0 +1,89 @@
+# --------------------------------
+# Python / Packaging
+# --------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+diagram.mmd
+
+# Virtual environments
+.venv/
+venv/
+env/
+coqui-env/
+
+# Logs & caches
+*.log
+*.tmp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.cache/
+pytest_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# --------------------------------
+# Manim outputs
+# --------------------------------
+media/
+**/media/
+videos/
+**/videos/
+*.mp4
+*.mov
+*.avi
+*.gif
+*.png
+!docs/banner.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+
+# Generated scenes & work dir
+work/
+generated_scene.py
+scene_generated.py
+
+# --------------------------------
+# Audio / Narration
+# --------------------------------
+audio_files/
+*.wav
+*.mp3
+*.ogg
+
+# --------------------------------
+# Editor / IDE
+# --------------------------------
+.vscode/
+.idea/
+*.iml
+
+# --------------------------------
+# Docs build artifacts
+# --------------------------------
+site/
+docs/_build/
+*.pdf
+
+# --------------------------------
+# CI / Misc
+# --------------------------------
+.tox/
+.nox/
+*.env
+.env.*

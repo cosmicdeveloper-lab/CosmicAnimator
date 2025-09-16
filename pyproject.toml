@@ -1,0 +1,39 @@
+[project]
+name = "cosmicanimator"
+version = "0.1.0"
+description = "Theme-aware, Manim-based animation generator with narration and subtitles"
+authors = [
+  { name = "Benyamin Amini", email = "cosmicdeveloper.b@gmail.com" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["manim", "animation", "tts", "subtitles", "cosmicanimator"]
+
+dependencies = [
+  "manim>=0.19",
+  "manim-voiceover>=0.3",
+  "numpy",
+  "typing-extensions"
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "isort", "mypy"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cosmicanimator*"]
+
+[tool.setuptools.package-data]
+cosmicanimator = ["media/**/*", "audio_files/**/*"]
+
+[project.scripts]
+cosmicanimator = "cosmicanimator.interfaces.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[project.urls]
+Homepage = "https://github.com/cosmicdeveloper-lab/cosmicanimator"
+Repository = "https://github.com/cosmicdeveloper-lab/cosmicanimator"
