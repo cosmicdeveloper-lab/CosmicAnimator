@@ -28,7 +28,7 @@ A theme-aware, Manim-based animation generator for short-form, neon-styled techn
     "handDrawnFamily": "handDrawn"
   }
 }}%%
-flowchart TB
+flowchart LR
  subgraph Core["Core"]
         C0["constants.py"]
         T0["theme.py"]
