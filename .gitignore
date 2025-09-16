@@ -12,7 +12,6 @@ __pycache__/
 build/
 dist/
 pip-wheel-metadata/
-diagram.mmd
 
 # Virtual environments
 .venv/
@@ -52,6 +51,7 @@ videos/
 *.jpg
 *.jpeg
 *.svg
+!docs/architecture.svg
 *.pdf
 
 # Generated scenes & work dir
