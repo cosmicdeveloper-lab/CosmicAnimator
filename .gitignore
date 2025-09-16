@@ -51,7 +51,7 @@ videos/
 *.jpg
 *.jpeg
 *.svg
-!docs/architecture.svg
+!docs/diagrams/architecture.svg
 *.pdf
 
 # Generated scenes & work dir

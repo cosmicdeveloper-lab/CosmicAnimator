@@ -15,9 +15,11 @@ A theme-aware, Manim-based animation generator for short-form, neon-styled techn
 
 ---
 
-## 🏗 Architecture (Mermaid)
+## 🏗 Project Architecture
 
-![Architecture](docs/architecture.svg)
+![Architecture Diagram](docs/diagrams/architecture.svg)  
+
+📄 [View Mermaid source](docs/diagrams/architecture.mmd)
 
 ---
 

@@ -1,0 +1,97 @@
+%%{init: {
+  "flowchart": {
+    "defaultRenderer": "elk",
+    "useMaxWidth": true,
+    "htmlLabels": true
+  },
+  "themeVariables": {
+    "handDrawnFamily": "handDrawn"
+  }
+}}%%
+flowchart LR
+ subgraph Core["Core"]
+        C0["constants.py"]
+        T0["theme.py"]
+        CoreStart>" "]
+  end
+ subgraph Style["Style"]
+        ST1["arrows.py"]
+        ST2["text.py"]
+        ST3["style_helpers.py"]
+        ST4["shapes.py"]
+  end
+ subgraph Transitions["Transitions"]
+        TM["timing.py"]
+        TU["transitions_utils.py"]
+        TC["camera.py"]
+        TH["highlight.py"]
+        TV["visuals.py"]
+        TF["fade.py"]
+        TMN["motion.py"]
+        SH["style_helpers.py"]
+  end
+ subgraph Adapters["Adapters"]
+        Style
+        Transitions
+        AdaptersStart>" "]
+  end
+ subgraph Actions["Actions"]
+        AC["base.py"]
+        AC1["action_utils.py"]
+        AC2["diagrams.py"]
+        AC3["boxes.py"]
+        AC4["effects.py"]
+        AC5["loop.py"]
+        AC6["narration_actions.py"]
+  end
+ subgraph Narration["Narration"]
+        NV["tts.py"]
+        NS["subtitle.py"]
+        NG["orchestra.py"]
+  end
+ subgraph Application["Application"]
+        Actions
+        Narration
+        ApplicationStart>" "]
+        G["generator.py"]
+  end
+ subgraph Interfaces["Interfaces"]
+        RE["render.py"]
+        CLI["cli.py"]
+        InterfacesStart>" "]
+  end
+ subgraph Flow["what's happening"]
+        CL["cli"]
+        JS["JSON Scenario"]
+        GN["generator.py"]
+        GS["generated_scene.py"]
+        RN["render"]
+  end
+    C0 --> T0
+    ST3 --> ST4
+    TU --> TF & TH & TV
+    TM --> TF & TMN
+    AC --> AC2 & AC3 & AC4 & AC5 & AC6 & G
+    AC1 --> AC2 & AC3
+    NS --> NG
+    NV --> G
+    NG --> G & AC6
+    RE --> CLI
+    CL --> JS
+    JS --> GN
+    GN --> GS
+    GS --> RN
+    RN --> CL
+    CoreStart -.- AdaptersStart
+    AdaptersStart -.- ApplicationStart
+    ApplicationStart -.- InterfacesStart
+    style Style stroke:#AA00FF
+    style Transitions stroke:#AA00FF
+    style Actions stroke:#AA00FF
+    style Narration stroke:#AA00FF
+    style GN stroke:#424242
+    style Adapters stroke:#FF6D00
+    style Core stroke:#FF6D00
+    style Application stroke:#FF6D00
+    style Interfaces stroke:#FF6D00
+    style Flow stroke:#FF6D00
