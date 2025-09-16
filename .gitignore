@@ -46,6 +46,7 @@ videos/
 *.mov
 *.avi
 *.gif
+!docs/sample.gif
 *.png
 !docs/banner.png
 *.jpg
