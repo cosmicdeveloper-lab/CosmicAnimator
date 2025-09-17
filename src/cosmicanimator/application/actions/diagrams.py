@@ -122,31 +122,31 @@ def layout_branch(
         child_labels += [""] * (n - len(child_labels))
 
     # --- Root node -----------------------------------------------------------------
-    color = root_fill_color if (root_filled and root_fill_color is not None) else root_color
     root_raw = make_unit_shape(root_shape)
-    root_node = style_shape(
-        root_raw,
-        color=color,
-        glow=True,
-    ).set_fill(t.get_color(color), opacity=1)
+    root_node = style_shape(root_raw, color=root_color, glow=True)
+    if root_filled:
+        root_node.set_fill(t.get_color(root_fill_color or root_color), opacity=1)
+    else:
+        root_node.set_fill(opacity=0)
     root_grp: VGroup = VGroup(root_node)
     if root_label:
         root_grp = apply_label(root_grp, root_label, outside=label_outside, label_color=root_color)
 
     # --- Child nodes ---------------------------------------------------------------
     children_groups = []
+    child_nodes = []
     for i in range(n):
-        color = child_fill_color if (child_filled and child_fill_color is not None) else child_color
         ch_raw = make_unit_shape(child_shape)
-        ch_node = style_shape(
-            ch_raw,
-            color=color,
-            glow=True,
-        ).set_fill(t.get_color(color), opacity=1)
-        ch_grp: VGroup = VGroup(ch_node)
+        ch_node = style_shape(ch_raw, color=child_color, glow=True)
+        ch_grp = VGroup(ch_node)
         if child_labels[i]:
             ch_grp = apply_label(ch_grp, child_labels[i], outside=label_outside, label_color=child_color)
+        if child_filled:
+            ch_node.set_fill(t.get_color(child_fill_color or child_color), opacity=1)
+        else:
+            ch_node.set_fill(opacity=0)
         children_groups.append(ch_grp)
+        child_nodes.append(ch_node)
 
     children = VGroup(*children_groups)
 
@@ -170,15 +170,12 @@ def layout_branch(
 
     # --- Connectors ----------------------------------------------------------------
     arrows = VGroup()
-    root_anchor = root_grp[-1]  # base geometry
-    for ch in children:
-        child_anchor = ch[-1]
+    root_anchor = root_node
+    for ch_node in child_nodes:
         start_pt = root_edge(root_anchor)
-        end_pt = child_edge(child_anchor)
-        if connection_type == "arrow":
-            arr = glow_arrow(start=start_pt, end=end_pt, color=arrow_color)
-        else:
-            arr = dotted_line(start=start_pt, end=end_pt, color=arrow_color)
+        end_pt = child_edge(ch_node)
+        arr = glow_arrow(start=start_pt, end=end_pt, color=arrow_color) if connection_type == "arrow" \
+            else dotted_line(start=start_pt, end=end_pt, color=arrow_color)
         arrows.add(arr)
 
     # --- Combine -------------------------------------------------------------------
