@@ -73,6 +73,7 @@ audio_files/
 # Docs build artifacts
 # --------------------------------
 site/
+work/
 docs/_build/
 *.pdf
 
