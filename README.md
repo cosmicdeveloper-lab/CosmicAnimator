@@ -128,7 +128,15 @@ pip install -e .
 
 > You’ll also need FFmpeg for Manim renders.
 
-### 3) Generate a scene from JSON
+
+### 3) Prepare a work/ directory
+
+```bash
+mkdir work
+echo '{}' > work/scenario.json
+```
+
+### 4) Generate a scene from JSON
 
 ```bash
 cosmicanimator --scenario work/scenario.json --out work/generated_scene.py --render
