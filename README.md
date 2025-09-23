@@ -143,7 +143,7 @@ cosmicanimator --scenario work/scenario.json --out work/generated_scene.py --ren
 ```
 Higher quality 👇🏻
 ```bash
-cosmicanimator --scenario work/scenario.json --out work/generated_scene.py --render --quality -qh
+cosmicanimator --scenario work/scenario.json --out work/generated_scene.py --render -qh or -qm
 ```
 
 ---
