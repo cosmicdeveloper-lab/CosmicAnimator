@@ -46,12 +46,12 @@ def main() -> None:
         action="store_true",
         help="If set, run Manim immediately after generation",
     )
-    parser.add_argument(
-        "--quality",
-        choices=["-ql", "-qh"],
-        default="-ql",
-        help="Manim quality flag: -ql (low), -qh (high). Default: -ql",
-    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-ql", dest="quality", action="store_const", const="-ql", help="Low quality (default)")
+    group.add_argument("-qm", dest="quality", action="store_const", const="-qm", help="Medium quality")
+    group.add_argument("-qh", dest="quality", action="store_const", const="-qh", help="High quality")
+    parser.set_defaults(quality="-ql")  # default if nothing given
+
     args = parser.parse_args()
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
