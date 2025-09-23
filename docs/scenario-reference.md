@@ -106,12 +106,9 @@ Creates a row/column/grid of labeled boxes. Stores each box under a **determinis
 - `filled` (bool, optional) — fill shapes instead of outline only
 - `appear` (bool, optional) — animate appearance
 - `appear_direction` (str, optional) — e.g., `"up"`, `"down"`, `"left"`, `"right"`
-- `id_prefix` (str, optional, default `"box"`) — if **not** using `id_from_labels`, generated IDs are `"{id_prefix}1"`, `"{id_prefix}2"`, ...
-- `id_from_labels` (bool, optional, default `false`) — when `true`, IDs are slugified labels
 
 **Resulting IDs**
-- With `id_from_labels=true`: `process_a`, `process_b`, `process_c`
-- Otherwise (default): `box1`, `box2`, `box3`
+- `box1`, `box2`, `box3`
 
 ---
 
@@ -133,7 +130,6 @@ Root → children diagram with connectors.
 - `child_labels` (array[str], required)
 - `direction` (str, optional)
 - `spacing`, `level_gap` (float, optional)
-- `id_from_labels`, `id_prefix` — same behavior as in `layout_boxes`
 
 **IDs**
 - Root: `root` (or custom via `id`)
@@ -165,13 +161,13 @@ Configure the voice service (Coqui).
 {"name": "voice_config", "args": {
   "service": "coqui",
   "model": "tts_models/en/vctk/vits",
-  "speaker_idx": "p231"
+  "speaker": "p231"
 }}
 ```
 **Args**
 - `service` (str, optional; currently `"coqui"`)
 - `model` (str, optional)
-- `speaker_idx` (str/int, optional; e.g., `"p231"`) — takes precedence over defaults
+- `speaker` (str/int, optional; e.g., `"p231"`) — takes precedence over defaults
 
 ---
 
@@ -218,7 +214,6 @@ Apply a **single transition** or a **pipeline** to one/many targets by ID.
 - `pipeline` (array[TransitionSpec], required if not using `transition`)
 - `run_time` (float, optional, default depends on transition)
 - `lag_ratio` (float, optional, for groups)
-- `ease` (str, optional; e.g., `"smooth"`, `"ease_in_out"`) — if supported
 
 ---
 
@@ -299,8 +294,6 @@ Concentric ripple from target center (visual emphasis).
 
 - Most layout actions store created objects under IDs:
   - Default pattern: `box1`, `box2`, ...
-  - With `id_prefix`: `process_1`, `process_2`, ...
-  - With `id_from_labels=true`: slugified labels, e.g. `"Process B"` → `process_b`
 - Use these IDs with `target_ids` in `apply_transition` and other actions needing a target.
 
 ---
@@ -344,7 +337,7 @@ Your provided JSON is valid; to make `"process_b"` target exist deterministicall
             "pipeline": [
               {"name": "highlight_shapes", "args": {"color": "accent"}}
             ],
-            "target_ids": ["process_b"]
+            "target_ids": ["box2"]
           }
         }
       ]
@@ -353,7 +346,7 @@ Your provided JSON is valid; to make `"process_b"` target exist deterministicall
 }
 ```
 
-This will create IDs `process_a`, `process_b`, `process_c`, so the transition can reliably target `"process_b"`.
+This will create IDs `box1`, `box2`, `box3`, so the transition can reliably target `"box2"`.
 
 ---
 
