@@ -141,6 +141,10 @@ echo '{}' > work/scenario.json
 ```bash
 cosmicanimator --scenario work/scenario.json --out work/generated_scene.py --render
 ```
+Higher quality 👇🏻
+```bash
+cosmicanimator --scenario work/scenario.json --out work/generated_scene.py --render --quality -qh
+```
 
 ---
 
