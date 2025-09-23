@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Optional, Sequence, Dict, Union, Callable
 from manim import VGroup, ORIGIN, RIGHT, DOWN, UP, LEFT, Mobject
 from .base import ActionContext, ActionResult, register
-from .action_utils import make_unit_shape, apply_label, sanitize_id
+from .action_utils import make_unit_shape, apply_label
 from cosmicanimator.adapters.style import style_shape, glow_arrow, dotted_line
 from cosmicanimator.adapters.transitions import fade_in_group, slide_in, Timing
 from cosmicanimator.core.theme import current_theme as t
@@ -37,6 +37,8 @@ def layout_branch(
     direction: str = "down",           # "down" | "up" | "left" | "right"
     spacing: float = 1.2,
     level_gap: float = 1.5,
+    root_size: float = 1,
+    child_size: float = 1,
     root_label: str = "",
     child_labels: Optional[Sequence[str]] = None,
     label_outside: bool = True,
@@ -74,6 +76,10 @@ def layout_branch(
         Distance between siblings.
     level_gap : float, default=1.5
         Distance from root to children.
+    root_size: float = 1
+        size of the root shape in scale
+    child_size: float = 1
+        size of the child shape in scale
     root_label : str, default=""
         Text label for root node.
     child_labels : list[str], optional
@@ -122,7 +128,7 @@ def layout_branch(
         child_labels += [""] * (n - len(child_labels))
 
     # --- Root node -----------------------------------------------------------------
-    root_raw = make_unit_shape(root_shape)
+    root_raw = make_unit_shape(root_shape, root_size)
     root_node = style_shape(root_raw, color=root_color, glow=True)
     if root_filled:
         root_node.set_fill(t.get_color(root_fill_color or root_color), opacity=1)
@@ -136,7 +142,7 @@ def layout_branch(
     children_groups = []
     child_nodes = []
     for i in range(n):
-        ch_raw = make_unit_shape(child_shape)
+        ch_raw = make_unit_shape(child_shape, child_size)
         ch_node = style_shape(ch_raw, color=child_color, glow=True)
         ch_grp = VGroup(ch_node)
         if child_labels[i]:
@@ -192,9 +198,9 @@ def layout_branch(
 
     # --- IDs -----------------------------------------------------------------------
     ids: Dict[str, Mobject] = {
-        sanitize_id(root_label, "root"): root_grp,
+        "root": root_grp,
         **{
-            sanitize_id(lbl, f"child{i + 1}"): ch
+            f"child{i + 1}": ch
             for i, (lbl, ch) in enumerate(zip(child_labels, children))
         },
         **{

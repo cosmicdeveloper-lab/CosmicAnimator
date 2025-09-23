@@ -32,8 +32,7 @@ from cosmicanimator.adapters.transitions import fade_in_group, slide_in, Timing
 from .action_utils import (
     SHAPE_REGISTRY,
     apply_label,
-    make_unit_shape,
-    sanitize_id,
+    make_unit_shape
 )
 from .base import ActionContext, ActionResult, register
 
@@ -70,6 +69,7 @@ def layout_boxes(
     ctx: ActionContext,
     *,
     shape: ShapeKind = "square",
+    size: float = 1.0,
     count: int = 4,
     # layout
     direction: str = "row",  # "row" | "column" | "grid"
@@ -108,6 +108,8 @@ def layout_boxes(
         Provides scene, store, and theme.
     shape : str | Callable, default="square"
         Shape kind (from SHAPE_REGISTRY) or a custom callable returning a Mobject.
+    size: float = 1.0
+        size of the shape in scale
     count : int, default=4
         Number of shapes to create (≥1).
 
@@ -184,7 +186,7 @@ def layout_boxes(
     # --- Build items ---
     items: List[VGroup] = []
     for i in range(n):
-        raw = make_unit_shape(shape)
+        raw = make_unit_shape(shape, size)
         base = style_shape(raw, color=color, glow=True)
 
         # Optional fill (tolerant if unsupported)
@@ -327,7 +329,7 @@ def layout_boxes(
 
     # --- Finalize result ---
     ids: Dict[str, Mobject] = {
-        sanitize_id(labels[i], f"box{i + 1}"): g for i, g in enumerate(items)
+        f"box{i + 1}": g for i, g in enumerate(items)
     }
     ids.update({
         f"connector{i + 1}": conn

@@ -8,7 +8,6 @@ Provides
 - Shape registry (`SHAPE_REGISTRY`) with basic polygons and stars.
 - `make_unit_shape`: build a normalized shape by kind or callable.
 - `apply_label`: attach styled labels to shapes/arrows.
-- `sanitize_id`: normalize labels into safe ID keys.
 
 Notes
 -----
@@ -50,7 +49,7 @@ SHAPE_REGISTRY = {
 # Builders
 # ---------------------------------------------------------------------------
 
-def make_unit_shape(kind: ShapeKind) -> Mobject:
+def make_unit_shape(kind: ShapeKind, size: float = 1.0) -> Mobject:
     """
     Build a unit-sized shape.
 
@@ -59,6 +58,8 @@ def make_unit_shape(kind: ShapeKind) -> Mobject:
     kind : str | Callable[[], Mobject]
         - String key (e.g., "circle", "hexagon").
         - Callable producing a Manim mobject.
+    size : float, optional
+    Scaling factor. Defaults to 1.0.
 
     Returns
     -------
@@ -70,9 +71,16 @@ def make_unit_shape(kind: ShapeKind) -> Mobject:
     Defaults to a square if kind is unknown.
     """
     if callable(kind):
-        return kind()
-    key = str(kind).lower()
-    return SHAPE_REGISTRY.get(key, SHAPE_REGISTRY["square"])()
+        shape = kind()
+    else:
+        key = str(kind).lower()
+        shape = SHAPE_REGISTRY.get(key, SHAPE_REGISTRY["square"])()
+
+    # Apply uniform scaling
+    if size != 1.0:
+        shape.scale(size)
+
+    return shape
 
 
 def apply_label(
@@ -146,31 +154,3 @@ def apply_label(
         lbl.set_z_index(getattr(base, "z_index", 0) + 1)
 
     return VGroup(basic_group, lbl)
-
-
-def sanitize_id(label: str, fallback: str) -> str:
-    """
-    Normalize a label into a safe lowercase identifier.
-
-    Rules
-    -----
-    - Keep alphanumerics.
-    - Replace others with `_`.
-    - Strip leading/trailing underscores.
-    - Lowercase everything.
-    - If empty, use `fallback`.
-
-    Parameters
-    ----------
-    label : str
-        Source label.
-    fallback : str
-        Backup if normalization results in empty string.
-
-    Returns
-    -------
-    str
-        Normalized identifier.
-    """
-    s = "".join(ch if ch.isalnum() else "_" for ch in (label or ""))
-    return s.strip("_").lower() or fallback
