@@ -269,11 +269,17 @@ def timing(name: str) -> float:
     """Shortcut for timing values in the active profile (fallback 0.5)."""
     return float(p("timing", name) or 0.5)
 
-def speaker(name:str) -> str:
+
+def speaker() -> str:
+    """Return the default TTS speaker ID (e.g. 'p364')."""
     return SPEAKER
 
-def tts_model(name:str) -> str:
+
+def tts_model() -> str:
+    """Return the default TTS model identifier (e.g. 'tts_models/en/vctk/vits')."""
     return TTS_MODEL
+
+
 
 def spacing() -> float:
     """Base spacing from the active profile (fallback 1.5)."""
