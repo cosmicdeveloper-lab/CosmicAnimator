@@ -67,6 +67,8 @@ class Theme:
         profiles: Optional[Mapping[str, Dict[str, Any]]] = None,
         canvas: Optional[Mapping[str, Dict[str, Any]]] = None,
         video_profile: Optional[str] = None,
+        speaker: Optional[str] = None,
+        tts_model: Optional[str] = None,
     ) -> None:
         # capture selected profile name (falls back to constants.VIDEO_PROFILE)
         self._video_profile: str = video_profile or getattr(c, "VIDEO_PROFILE", "short")
@@ -87,6 +89,8 @@ class Theme:
         # Profiles/canvas (so your layout/time helpers remain consistent)
         self._profiles: Dict[str, Dict[str, Any]] = _merge_dicts(getattr(c, "PROFILES", {}), profiles)
         self._canvas: Dict[str, Dict[str, Any]] = _merge_dicts(getattr(c, "CANVAS", {}), canvas)
+        self._speaker: str = speaker or getattr(c, "SPEAKER", "p364")
+        self._tts_model: str = tts_model or getattr(c, "TTS_MODEL", "tts_models/en/vctk/vits")
 
         # Handy cached fallbacks
         self._fallback_role = "primary"
@@ -118,6 +122,8 @@ class Theme:
             profiles=_merge_dicts(self._profiles, kwargs.get("profiles")),
             canvas=_merge_dicts(self._canvas, kwargs.get("canvas")),
             video_profile=kwargs.get("video_profile", self._video_profile),
+            speaker=kwargs.get("speaker", self._speaker),
+            tts_model=kwargs.get("tts_model", self._tts_model),
         )
 
     # ---- Palette/Color ----------------------------------------------------
@@ -193,6 +199,14 @@ class Theme:
     def video_profile(self) -> str:
         """Active video profile name (e.g. 'short'|'long'|'square')."""
         return self._video_profile
+
+    def get_speaker(self) -> str:
+        """Speaker id (e.g. 'p365'|'p225'|...)."""
+        return self._speaker
+
+    def get_tts_model(self) -> str:
+        """TTS model id/path (e.g. 'tts_models/en/vctk/vits')."""
+        return self._tts_model
 
     def _p(self, section: str, key: str) -> Any:
         return self._profiles.get(self._video_profile, {}).get(section, {}).get(key)

@@ -225,7 +225,6 @@ ARROW_STYLES: Dict[str, Dict[str, Any]] = {
         "glow_layers": 2,
         "glow_opacity": 0.25,
         "glow_decay": 0.65,
-        "dashed": False,
     },
     "dashed": {
         "color": ROLE_TRIPLETS["secondary"]["stroke"],
@@ -235,7 +234,6 @@ ARROW_STYLES: Dict[str, Dict[str, Any]] = {
         "glow_layers": 0,
         "glow_opacity": 0.00,
         "glow_decay": 0.00,
-        "dashed": True,
     },
     "glowing": {
         "color": ROLE_TRIPLETS["primary"]["stroke"],
@@ -245,28 +243,17 @@ ARROW_STYLES: Dict[str, Dict[str, Any]] = {
         "glow_layers": 3,
         "glow_opacity": 0.30,
         "glow_decay": 0.60,
-        "dashed": False,
     },
 }
 
 DEFAULT_ARROW_STYLE: Dict[str, Any] = ARROW_STYLES["default"]
 
 # ============================================================================
-# 9) Defaults / fallbacks
+# 9) Speaker and TTS model
 # ============================================================================
 
-DEFAULTS: Dict[str, Any] = {
-    "direction": "horizontal",          # "horizontal" | "vertical"
-    "arrow_style": "default",
-    "highlight_mode": "simultaneous",   # "simultaneous" | "sequential"
-    "easing": "ease_in_out",
-    "label_prefix": "Item",
-    "shape": "square",
-    "color": "primary",
-    "stroke": "normal",
-}
-
-HIGHLIGHT_MODES: Tuple[str, ...] = ("simultaneous", "sequential")
+SPEAKER: str = "p364"
+TTS_MODEL: str = "tts_models/en/vctk/vits"
 
 # ============================================================================
 # 10) Convenience getters
@@ -282,6 +269,11 @@ def timing(name: str) -> float:
     """Shortcut for timing values in the active profile (fallback 0.5)."""
     return float(p("timing", name) or 0.5)
 
+def speaker(name:str) -> str:
+    return SPEAKER
+
+def tts_model(name:str) -> str:
+    return TTS_MODEL
 
 def spacing() -> float:
     """Base spacing from the active profile (fallback 1.5)."""

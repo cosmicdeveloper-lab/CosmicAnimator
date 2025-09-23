@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from typing import Optional, Union
 from manim_voiceover import VoiceoverScene
 from manim_voiceover.services.coqui import CoquiService
-
+from cosmicanimator.core.theme import current_theme as t
 
 class VoiceScene(VoiceoverScene):
     """
@@ -32,8 +32,8 @@ class VoiceScene(VoiceoverScene):
         self,
         service: Optional[CoquiService] = None,
         *,
-        model: Optional[str] = "tts_models/en/vctk/vits",
-        speaker: Optional[Union[str, int]] = "p245",  # string (e.g "p245") or int index
+        model: Optional[str] = None,
+        speaker: Optional[Union[str, int]] = None,
         speaker_idx: Optional[int] = None,           # takes priority if both given
         language_idx: Optional[int] = None,
         **coqui_kwargs,
@@ -65,6 +65,8 @@ class VoiceScene(VoiceoverScene):
         - After setup, voice service is locked (`_voice_locked=True`)
           to prevent silent overrides later.
         """
+        speaker = t.get_speaker()
+        model = t.get_tts_model()
         if service is None:
             if model:
                 coqui_kwargs["model_name"] = model
