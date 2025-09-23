@@ -46,13 +46,19 @@ def main() -> None:
         action="store_true",
         help="If set, run Manim immediately after generation",
     )
+    parser.add_argument(
+        "--quality",
+        choices=["-ql", "-qh"],
+        default="-ql",
+        help="Manim quality flag: -ql (low), -qh (high). Default: -ql",
+    )
     args = parser.parse_args()
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     write_scene(args.scenario, args.out, scene_class_name=args.scene_class)
 
     if args.render:
-        render(args.out, args.scene_class)
+        render(args.out, args.scene_class, quality=args.quality)
 
 
 if __name__ == "__main__":
