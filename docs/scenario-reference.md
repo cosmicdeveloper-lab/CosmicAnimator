@@ -7,22 +7,19 @@ This document defines the **valid JSON shapes** your generator accepts and **int
 
 ## 1) Top‑Level Forms
 
-A scenario can be either a **list of steps** or an **object with `script`**. Both are equivalent.
+A scenario   **object with `script`**.
 
-### A. Array form
-```json
-[
-  {"line": "Welcome to CosmicAnimator!"},
-  {"action": "render_title", "args": {"text": "CosmicAnimator"}}
-]
-```
+
 
 ### B. Object form
 ```json
 {
   "script": [
-    {"line": "Welcome to CosmicAnimator!"},
-    {"action": "render_title", "args": {"text": "CosmicAnimator"}}
+    {
+      "line": "Welcome to CosmicAnimator!",
+      "action": "render_title",
+      "args": {"text": "CosmicAnimator"}
+    }
   ]
 }
 ```
@@ -45,8 +42,8 @@ Each step may include a narration `line` and either **one** `action` with `args`
 {
   "line": "Do several things in order.",
   "actions": [
-    {"name": "render_title", "args": {"text": "Pipeline"}},
-    {"name": "apply_transition", "args": {"transition": "fade_in", "target_ids": ["title"]}}
+    {"name": "layout_boxes"},
+    {"name": "apply_transition", "args": {"name": "highlight_shapes", "target_ids": ["box2"]}}
   ]
 }
 ```
@@ -72,16 +69,14 @@ Renders a prominent HUD title.
   "text": "CosmicAnimator",
   "variant": "title",
   "color": "accent",
-  "font_size": 72,
-  "id": "title"
+  "font_size": 72
 }}
 ```
 **Args**
 - `text` (str, required)
-- `variant` (str, optional, e.g. `"title"`, `"subtitle"`)
+- `variant` (str, optional, e.g. `"title"`)
 - `color` (role/hex, optional)
 - `font_size` (int, optional)
-- `id` (str, optional) — Explicit ID to reference later
 
 ---
 
@@ -93,9 +88,7 @@ Creates a row/column/grid of labeled boxes. Stores each box under a **determinis
   "count": 3,
   "labels": ["Process A", "Process B", "Process C"],
   "direction": "row",
-  "filled": true,
-  "id_from_labels": true,
-  "id_prefix": ""
+  "filled": true
 }}
 ```
 **Args**
@@ -120,9 +113,7 @@ Root → children diagram with connectors.
   "child_labels": ["API", "DB", "Cache"],
   "direction": "row",
   "spacing": 1.0,
-  "level_gap": 1.4,
-  "id_from_labels": true,
-  "id_prefix": "node"
+  "level_gap": 1.4
 }}
 ```
 **Args**
@@ -141,7 +132,7 @@ Root → children diagram with connectors.
 Draws an orbit/loop arrow around a target.
 ```json
 {"name": "render_loop", "args": {
-  "target_id": "process_b",
+  "target_id": "box1",
   "span_degrees": 300,
   "revolutions": 1,
   "run_time": 1.2
@@ -155,44 +146,15 @@ Draws an orbit/loop arrow around a target.
 
 ---
 
-### 3.5 `voice_config`
-Configure the voice service (Coqui).
-```json
-{"name": "voice_config", "args": {
-  "service": "coqui",
-  "model": "tts_models/en/vctk/vits",
-  "speaker": "p231"
-}}
-```
-**Args**
-- `service` (str, optional; currently `"coqui"`)
-- `model` (str, optional)
-- `speaker` (str/int, optional; e.g., `"p231"`) — takes precedence over defaults
 
----
-
-### 3.6 `narrate`
-Speak a line immediately (useful when you **don’t** want to rely on implicit `line` narration).
-```json
-{"name": "narrate", "args": {
-  "text": "Here are three processes.",
-  "add_subtitles": true
-}}
-```
-**Args**
-- `text` (str, required)
-- `add_subtitles` (bool, optional, default `true`)
-
----
-
-### 3.7 `apply_transition`
+### 3.5 `apply_transition`
 Apply a **single transition** or a **pipeline** to one/many targets by ID.
 
 **Single transition**
 ```json
 {"name": "apply_transition", "args": {
-  "transition": "fade_in",
-  "target_ids": ["process_b"],
+  "name": "ghost_shapes",
+  "target_ids": ["box2"],
   "run_time": 0.8
 }}
 ```
@@ -201,10 +163,10 @@ Apply a **single transition** or a **pipeline** to one/many targets by ID.
 ```json
 {"name": "apply_transition", "args": {
   "pipeline": [
-    {"name": "slide_in", "args": {"direction": "up"}},
+    {"name": "ripple_effect"},
     {"name": "highlight_shapes", "args": {"color": "accent"}}
   ],
-  "target_ids": ["process_b"]
+  "target_ids": ["box2"]
 }}
 ```
 
@@ -222,73 +184,137 @@ Apply a **single transition** or a **pipeline** to one/many targets by ID.
 The following names are recognized by `apply_transition`. Each transition supports the generic timing args (`run_time`, `lag_ratio`, `ease`) unless noted otherwise.
 
 ### 4.1 `highlight_shapes`
-Visually emphasize one or more targets (stroke width/glow bump; optional color shift).
-```json
-{"name": "highlight_shapes", "args": {
-  "color": "accent",
-  "glow": true,
-  "stroke_scale": 1.4
-}}
-```
+Temporarily highlight one or more shapes with overlays (fill, glow, or both).
 
-### 4.2 `ghost_shapes`
-Dim/out‑of‑focus effect for non‑targets, preserving target emphasis.
-```json
-{"name": "ghost_shapes", "args": {
-  "opacity": 0.15,
-  "non_targets": "dim"
-}}
-```
-
-### 4.3 `fade_in`
-Fade targets from 0 → 1 opacity.
-```json
-{"name": "fade_in", "args": {}}
-```
-
-### 4.4 `fade_out`
-Fade targets from 1 → 0 opacity.
-```json
-{"name": "fade_out", "args": {}}
-```
-
-### 4.5 `slide_in`
-Translate from an off‑screen direction.
-```json
-{"name": "slide_in", "args": {
-  "direction": "up",
-  "distance": 1.0
-}}
-```
-
-### 4.6 `slide_out`
-Translate off‑screen.
-```json
-{"name": "slide_out", "args": {
-  "direction": "down",
-  "distance": 1.0
-}}
-```
-
-### 4.7 `pulse`
-Scale up/down briefly (good for attention cues).
-```json
-{"name": "pulse", "args": {
-  "scale": 1.1
-}}
-```
-
-### 4.8 `ripple`
-Concentric ripple from target center (visual emphasis).
-```json
-{"name": "ripple", "args": {
-  "rings": 3
-}}
-```
-
-> If a transition is missing in code, either add it to your transition registry or remove it here to keep this doc authoritative.
+**Args**
+- `color` (str, default `"auto"`) — theme role, hex, or `"auto"` (per-part)
+- `mode` (str, default `"both"`) — `"fill"`, `"glow"`, or `"both"`
+- `fill_opacity` (float, default `0.60`)
+- `scale` (float, default `1.04`) — slight enlargement
+- `include_text` (bool, default `false`)
+- `in_time` (float, default `0.28`)
+- `hold_time` (float, default `0.55`)
+- `out_time` (float, default `0.30`)
+- `lag_ratio` (float, default `0.08`)
+- `pulse` (bool, default `false`)
+- `pulse_times` (int, default `2`)
+- `pulse_scale` (float, default `1.06`)
+- `pulse_period` (float, default `0.35`)
 
 ---
+
+### 4.2 `focus_on_shape`
+Dim everything except the given targets, lifting them visually.
+
+**Args**
+- `include_text` (bool, default `true`)
+- `backdrop_role` (str, default `"#000000"`) — fill color for backdrop
+- `backdrop_opacity` (float, default `0.62`)
+- `in_time` (float, default `0.35`)
+- `hold_time` (float, default `0.60`)
+- `out_time` (float, default `0.30`)
+- `lag_ratio` (float, default `0.0`)
+
+---
+
+### 4.3 `ghost_shapes`
+Temporarily dim stroke layers, then restore.
+
+**Args**
+- `dim_opacity` (float, default `0.1`)
+- `run_time` (float, default `0.6`)
+- `pause_ratio` (float, default `0.12`)
+- `rate_func` (callable, optional)
+- `min_stroke` (float, default `0.2`)
+- `exclude_filled` (bool, default `false`)
+
+---
+
+### 4.4 `orbit_around`
+Orbit an object around a point or another object.
+
+**Args**
+- `center` (array, optional) — explicit orbit center
+- `around` (VMobject, optional) — orbit around another object
+- `radius` (float, optional)
+- `start_angle` (float, optional)
+- `rotations` (float, default `1.0`)
+- `clockwise` (bool, default `false`)
+- `run_time` (float, default `2.0`)
+- `rate_func` (callable, default `linear`)
+- `rotate_self` (bool, default `false`)
+
+---
+
+### 4.5 `shake`
+Shake an object with optional color flash.
+
+**Args**
+- `amplitude` (float, default `0.3`)
+- `shakes` (int, default `2`)
+- `run_time` (float, default `0.6`)
+- `axis` (str, default `"horizontal"`) — `"horizontal"` | `"vertical"`
+- `color_change` (bool, default `true`)
+- `color` (Manim color, default `RED`)
+
+---
+
+### 4.6 `ripple_effect`
+Concentric rings expanding/contracting from targets.
+
+**Args**
+- `color` (str, default `"auto"`)
+- `rings` (int, default `3`)
+- `ring_gap` (float, default `0.25`)
+- `stroke_width` (float, default `4.0`)
+- `base_opacity` (float, default `0.9`)
+- `from_edge` (bool, default `true`)
+- `center_override` (array, optional)
+- `inward` (bool, default `false`)
+- `fade_in` (bool, default `false`)
+- `fade_out` (bool, default `true`)
+- `in_time` (float, default `0.10`)
+- `expand_time` (float, default `0.8`)
+- `hold_time` (float, default `0.0`)
+- `out_time` (float, default `0.25`)
+- `ring_lag` (float, default `0.12`)
+- `target_lag` (float, default `0.05`)
+
+---
+
+### 4.7 `zoom_to`
+Zoom camera frame to a target, hold, then optionally restore.
+
+**Args**
+- `zoom` (float, default `1.8`) — factor (>1 zooms in)
+- `in_time` (float, default `0.9`)
+- `hold_time` (float, default `0.5`)
+- `out_time` (float, default `0.8`)
+- `rate_func` (callable, default `smooth`)
+
+---
+
+### 4.8 `zoom_out`
+Zoom out from current view, hold, then optionally restore.
+
+**Args**
+- `zoom` (float, default `1.8`)
+- `in_time` (float, default `0.9`)
+- `hold_time` (float, default `0.5`)
+- `out_time` (float, default `0.8`)
+- `rate_func` (callable, default `smooth`)
+
+---
+
+### 4.9 `pan_to`
+Pan camera center smoothly toward a target.
+
+**Args**
+- `run_time` (float, default `1.0`)
+- `rate_func` (callable, default `smooth`)
+- `direction_step` (float, default `2.0`)
+- `direction` (str, default `"left"`) — `"left"`, `"right"`, `"up"`, `"down"`
+
 
 ## 5) IDs & Targeting — Rules
 
@@ -298,10 +324,7 @@ Concentric ripple from target center (visual emphasis).
 
 ---
 
-## 6) Validated Example (Targets by Label → Slug)
-
-Your provided JSON is valid; to make `"process_b"` target exist deterministically, enable `id_from_labels` in `layout_boxes`:
-
+## 6) Validated Example
 ```json
 {
   "script": [
@@ -312,8 +335,7 @@ Your provided JSON is valid; to make `"process_b"` target exist deterministicall
           "name": "render_title",
           "args": {
             "text": "CosmicAnimator",
-            "color": "accent",
-            "id": "title"
+            "color": "accent"
           }
         }
       ]
@@ -327,8 +349,7 @@ Your provided JSON is valid; to make `"process_b"` target exist deterministicall
             "count": 3,
             "labels": ["Process A", "Process B", "Process C"],
             "direction": "row",
-            "filled": true,
-            "id_from_labels": true
+            "filled": true
           }
         },
         {
@@ -347,27 +368,3 @@ Your provided JSON is valid; to make `"process_b"` target exist deterministicall
 ```
 
 This will create IDs `box1`, `box2`, `box3`, so the transition can reliably target `"box2"`.
-
----
-
-## 7) Action & Transition Registry (Summary Table)
-
-| Type | Name | Key Args |
-|---|---|---|
-| Action | render_title | text, color, font_size, id |
-| Action | layout_boxes | count, labels, direction, filled, id_from_labels, id_prefix |
-| Action | layout_branch | root_label, child_labels, direction, spacing, level_gap |
-| Action | render_loop | target_id, span_degrees, revolutions, run_time |
-| Action | voice_config | service, model, speaker_idx |
-| Action | narrate | text, add_subtitles |
-| Action | apply_transition | transition **or** pipeline, target_ids, run_time |
-| Transition | highlight_shapes | color, glow, stroke_scale |
-| Transition | ghost_shapes | opacity, non_targets |
-| Transition | fade_in | — |
-| Transition | fade_out | — |
-| Transition | slide_in | direction, distance |
-| Transition | slide_out | direction, distance |
-| Transition | pulse | scale |
-| Transition | ripple | rings |
-
----
