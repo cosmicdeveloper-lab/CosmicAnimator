@@ -60,7 +60,6 @@ def narrate(
     text: str,
     wait: bool = True,
     add_subtitle: Optional[bool] = None,
-    speaker_idx: Optional[int] = "P230",
     overlay_kwargs: Optional[Dict[str, Any]] = None,
     **voice_kwargs: Any,
 ) -> ActionResult:
@@ -80,8 +79,6 @@ def narrate(
     add_subtitle : bool, optional
         Override Orchestra subtitle toggle.
         If None, use Orchestra’s global setting.
-    speaker_idx : int, optional
-        Temporary speaker index override.
     overlay_kwargs : dict, optional
         Arguments for first-time creation of Orchestra/overlay.
         Subsequent calls reuse the same instance.
@@ -101,7 +98,6 @@ def narrate(
         text,
         wait=wait,
         add_subtitle=add_subtitle,
-        speaker_idx=speaker_idx,
         voice_kwargs=(voice_kwargs or None),
     )
     return ActionResult(

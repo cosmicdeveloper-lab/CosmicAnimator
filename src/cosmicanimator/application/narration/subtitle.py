@@ -1,65 +1,46 @@
-# src/cosmicanimator/application/subtitle.py
+# src/cosmicanimator/application/narration/subtitle.py
 
 """
-Subtitle overlay system for timed captions in CosmicAnimator.
+Subtitle overlay rendering for Manim scenes.
 
-- `SubtitleOverlay`: schedules caption chunks and renders them as styled
-  text at the bottom of the screen, synced to scene time.
-
-Notes
------
-- Captions are styled via `style_text` (theme-aware) unless explicitly
-  disabled (`use_style_text=False`).
-- Chunks are swapped automatically as the scene time advances.
-- Designed to be composable: overlay is just a `VGroup` you add to the scene.
+This module provides a pure rendering layer for subtitles synchronized
+with narration. It handles:
+- Splitting text into chunks with timings.
+- Wrapping and styling text for display.
+- Updating captions in sync with scene time.
 """
 
 from __future__ import annotations
-from manim import VGroup, Text, always_redraw, DOWN
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Dict, Any
+from manim import VGroup, Text, DOWN
 from cosmicanimator.adapters.style import style_text
 
 
-# ---------------------------------------------------------------------------
-# Internal schedule container
-# ---------------------------------------------------------------------------
-
 @dataclass
 class _Schedule:
-    """Internal: stores a scheduled subtitle sequence."""
+    """
+    Internal data structure representing a subtitle schedule.
+    """
     chunks: Sequence[str]
-    cum: Sequence[float]   # cumulative times for each chunk
-    start_time: float      # absolute scene time offset
+    cum: Sequence[float]
+    start_time: float
 
-
-# ---------------------------------------------------------------------------
-# Subtitle overlay
-# ---------------------------------------------------------------------------
 
 class SubtitleOverlay(VGroup):
     """
-    On-screen subtitle overlay for Manim.
+    Subtitle rendering overlay for Manim scenes.
 
-    Usage
+    Responsibilities:
+    - Receives pre-chunked text with durations.
+    - Normalizes and clamps timing for consistent pacing.
+    - Displays subtitles at the bottom of the frame, styled via
+      `style_text` or raw Manim `Text`.
+
+    Notes
     -----
-    >>> overlay = SubtitleOverlay(scene, wrap_chars=34, style_variant="subtitle")
-    >>> overlay.schedule_chunks(chunks, durations, start_time=scene.time)
-
-    Parameters
-    ----------
-    scene : Scene
-        Parent scene (must have `time` attribute).
-    wrap_chars : int, optional
-        Soft-wrap width (approximate characters per line).
-    use_style_text : bool, default=True
-        If True, build captions via `style_text`. If False, raw `Text`.
-    style_variant : str, optional
-        Named style variant to use (e.g., "subtitle").
-    style_kwargs : dict, optional
-        Extra style parameters for `style_text`.
-    **style :
-        Legacy kwargs forwarded to `Text` if `use_style_text=False`.
+    This class only handles *rendering*. Chunking and timing policies
+    should be managed upstream.
     """
 
     def __init__(
@@ -70,30 +51,66 @@ class SubtitleOverlay(VGroup):
         use_style_text: bool = True,
         style_variant: Optional[str] = "subtitle",
         style_kwargs: Optional[Dict[str, Any]] = None,
+        max_lines: int = 2,
+        chars_per_sec: float = 16.0,
+        min_duration: float = 1.2,
+        max_duration: float = 3.8,
         **style,
     ):
+        """
+        Initialize the subtitle overlay.
+
+        Parameters
+        ----------
+        scene : manim.Scene
+            The parent scene.
+        wrap_chars : int, optional
+            Wrap width in characters. Defaults to 38.
+        use_style_text : bool, default=True
+            Whether to use `style_text` for rendering.
+        style_variant : str, optional
+            Style variant name (passed to `style_text`).
+        style_kwargs : dict, optional
+            Extra keyword arguments for `style_text`.
+        max_lines : int, default=2
+            Maximum number of subtitle lines.
+        chars_per_sec : float, default=16.0
+            Approximate reading speed for auto-timing.
+        min_duration : float, default=1.2
+            Minimum duration per chunk in seconds.
+        max_duration : float, default=3.8
+            Maximum duration per chunk in seconds.
+        **style :
+            Extra kwargs forwarded to `manim.Text` when `use_style_text=False`.
+        """
         super().__init__()
         self.scene = scene
 
-        # --- style config ---
+        # Styling options
         self.wrap_chars = wrap_chars
         self.use_style_text = use_style_text
         self.style_variant = style_variant
         self.style_kwargs = style_kwargs or {}
-        self.style = style  # only used if use_style_text=False
+        self.style = style
 
-        # --- runtime state ---
+        # Timing policy (render-guards only)
+        self.max_lines = int(max(1, max_lines))
+        self.chars_per_sec = float(max(1e-6, chars_per_sec))
+        self.min_duration = float(max(0.0, min_duration))
+        self.max_duration = float(max(self.min_duration, max_duration))
+        self._default_wrap = 38
+
+        # Runtime state
         self._current_idx: int = -1
         self._schedule: Optional[_Schedule] = None
         self._has_updater: bool = False
 
-        # Root container for the active caption node
-        self._root = VGroup()
-        self.add(self._root)
+        # Persistent slot for captions (always pinned to bottom)
+        self._caption_node = VGroup()
+        self._caption_node.add_updater(lambda m: m)
+        self.add(self._caption_node)
 
-    # -----------------------------------------------------------------------
-    # Public API
-    # -----------------------------------------------------------------------
+    # ---------------- Public API ----------------
 
     def schedule_chunks(
         self,
@@ -102,48 +119,60 @@ class SubtitleOverlay(VGroup):
         *,
         start_time: float,
         offset: float = 0.0,
+        pace: float = 0.92,
+        lead: float = 0.14,
     ) -> None:
         """
-        Schedule a sequence of caption chunks.
+        Schedule subtitle chunks with associated durations.
 
         Parameters
         ----------
         chunks : list[str]
-            Subtitle strings to display.
+            List of subtitle strings.
         durations : list[float]
-            Durations (seconds) for each chunk.
+            Durations for each subtitle chunk (seconds).
         start_time : float
-            Scene time (seconds) to begin.
+            Start time of the first chunk (scene-relative).
         offset : float, default=0.0
-            Additional offset delay before first caption.
-
-        Raises
-        ------
-        ValueError
-            If lengths mismatch or any duration is negative.
+            Global timing offset applied to all chunks.
+        pace : float, default=0.92
+            Scaling factor applied to durations.
+        lead : float, default=0.14
+            Time subtracted from the start for early lead-in.
         """
         if not chunks:
             self.clear_schedule()
             return
         if len(chunks) != len(durations):
-            raise ValueError(
-                f"chunks ({len(chunks)}) and durations ({len(durations)}) must match"
-            )
+            raise ValueError("chunks and durations must have the same length")
         if any(d < 0 for d in durations):
             raise ValueError("durations must be non-negative")
 
-        # Compute cumulative times (end boundaries)
+        # Normalize durations and clamp
+        durations = [max(d, 1e-3) * pace for d in durations]
+        start_time = float(start_time) - lead
+
+        norm_chunks: List[str] = []
+        norm_durations: List[float] = []
+        for text, dur in zip(chunks, durations):
+            text = " ".join((text or "").split())
+            if not text:
+                continue
+            nd = self._clamped_duration(
+                dur if dur > 0 else len(text) / self.chars_per_sec
+            )
+            norm_chunks.append(text)
+            norm_durations.append(nd)
+
+        # Build cumulative schedule
         cum: List[float] = [0.0]
-        for d in durations:
+        for d in norm_durations:
             cum.append(cum[-1] + float(d))
 
         self._schedule = _Schedule(
-            chunks=list(chunks),
-            cum=cum,
-            start_time=float(start_time) + float(offset),
+            chunks=norm_chunks, cum=cum, start_time=float(start_time) + float(offset)
         )
 
-        # Ensure overlay is in scene and updating
         if self not in self.scene.mobjects:
             self.scene.add(self)
         if not self._has_updater:
@@ -151,25 +180,33 @@ class SubtitleOverlay(VGroup):
             self._has_updater = True
 
     def stop(self) -> None:
-        """Stop updating and clear any visible caption."""
+        """
+        Stop subtitle rendering and remove the updater.
+        """
         self.clear_schedule()
         if self._has_updater:
             self.remove_updater(self._update)
             self._has_updater = False
 
     def clear_schedule(self) -> None:
-        """Clear subtitle schedule and remove current caption mobject."""
+        """
+        Clear the current subtitle schedule and reset state.
+        """
         self._schedule = None
         self._current_idx = -1
-        self._root.submobjects.clear()
+        self._caption_node.become(VGroup())
 
-    # -----------------------------------------------------------------------
-    # Internals
-    # -----------------------------------------------------------------------
+    # ---------------- Internal helpers ----------------
+
+    def _clamped_duration(self, seconds: float) -> float:
+        """Clamp duration to [min_duration, max_duration]."""
+        s = float(seconds)
+        return max(self.min_duration, min(self.max_duration, s))
 
     def _wrap(self, s: str) -> str:
-        """Greedy soft-wrap text into lines of ~wrap_chars length."""
-        if not self.wrap_chars or self.wrap_chars <= 0:
+        """Word-wrap a string into multiple lines."""
+        width = int(self.wrap_chars or 0)
+        if width <= 0:
             return s
         words = s.split()
         if not words:
@@ -178,21 +215,21 @@ class SubtitleOverlay(VGroup):
         cur: List[str] = []
         n = 0
         for w in words:
-            add = (1 if cur else 0) + len(w)
-            if n + add > self.wrap_chars:
+            need = (1 if cur else 0) + len(w)
+            if n + need > width:
                 if cur:
                     lines.append(" ".join(cur))
                 cur = [w]
                 n = len(w)
             else:
                 cur.append(w)
-                n += add
+                n += need
         if cur:
             lines.append(" ".join(cur))
         return "\n".join(lines)
 
     def _make_group(self, s: str) -> VGroup:
-        """Create a styled caption group for one chunk of text."""
+        """Create a styled VGroup node for a subtitle string."""
         s = self._wrap(s)
         if self.use_style_text:
             node = style_text(
@@ -200,36 +237,40 @@ class SubtitleOverlay(VGroup):
                 **({"variant": self.style_variant} if self.style_variant else {}),
                 **self.style_kwargs,
             )
-            return node if isinstance(node, VGroup) else VGroup(node)
-        return VGroup(Text(s, **{k: v for k, v in self.style.items() if v is not None}))
+            grp = node if isinstance(node, VGroup) else VGroup(node)
+        else:
+            grp = VGroup(Text(s, **{k: v for k, v in self.style.items() if v is not None}))
+
+        # Ensure consistent width (≤ 90% of frame width)
+        max_width = self.scene.camera.frame_width * 0.9
+        if grp.width > max_width:
+            grp.scale_to_fit_width(max_width)
+
+        return grp
+
+    def _show_text(self, s: str) -> None:
+        """Render a subtitle string at the bottom of the frame."""
+        grp = self._make_group(s)
+        self._caption_node.become(grp).to_edge(DOWN).shift(DOWN * 4)
 
     def _update(self, _mobj) -> None:
-        """Updater: swaps active caption according to current scene time."""
+        """Frame updater: show current chunk if within schedule window."""
         sch = self._schedule
         if not sch:
             return
-
         now = float(getattr(self.scene, "time", 0.0))
         t = now - sch.start_time
-
-        # End of schedule → stop
+        if t < 0:
+            return  # not time yet
         if t >= sch.cum[-1]:
             self.stop()
             return
-
-        # Find active chunk index
         idx = -1
         for i in range(len(sch.chunks)):
             if sch.cum[i] <= t < sch.cum[i + 1]:
                 idx = i
                 break
-
-        # Update overlay if index changed
         if idx != self._current_idx:
             self._current_idx = idx
-            self._root.submobjects.clear()
             if 0 <= idx < len(sch.chunks):
-                grp = self._make_group(sch.chunks[idx])
-                # Position: bottom of frame, shifted further down for safety
-                caption = always_redraw(lambda: grp.copy().to_edge(DOWN).shift(DOWN * 4))
-                self._root.add(caption)
+                self._show_text(sch.chunks[idx])
