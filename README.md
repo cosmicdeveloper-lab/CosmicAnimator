@@ -40,10 +40,9 @@ flowchart LR
         SH["style_helpers.py"]
   end
  subgraph Adapters["Adapters"]
-        AdaptersStart>" "]
         Style
         Transitions
-        
+
   end
  subgraph Actions["Actions"]
         AC["base.py"]
@@ -52,7 +51,6 @@ flowchart LR
         AC3["boxes.py"]
         AC4["effects.py"]
         AC5["loop.py"]
-        AC6["narration_actions.py"]
   end
  subgraph Narration["Narration"]
         NV["tts.py"]
@@ -65,13 +63,11 @@ flowchart LR
  subgraph Application["Application"]
         Actions
         Narration
-        ApplicationStart>" "]
         G["generator.py"]
   end
  subgraph Interfaces["Interfaces"]
         RE["render.py"]
         CLI["cli.py"]
-        InterfacesStart>" "]
   end
  subgraph Flow["what's happening"]
         CL["cli"]
@@ -84,16 +80,15 @@ flowchart LR
     ST3 --> ST4
     TU --> TF & TH & TV
     TM --> TF & TMN
-    AC --> AC2 & AC3 & AC4 & AC5 & AC6 & G
+    AC --> AC2 & AC3 & AC4 & AC5  & G
     AC1 --> AC2 & AC3
     NS --> SCH
     PL --> SCH
     SCH --> NG
-    CN --> NG
-    CN --> SCH
+    CN --> NG & SCH
     NS --> NG
-    NV --> G
-    NG --> G & AC6
+    NV --> SCH
+    NG --> G
     RE --> CLI
     CL --> JS
     JS --> GN
@@ -102,8 +97,8 @@ flowchart LR
     RN --> CL
     Style --> Transitions
     Core -.-> Adapters
-    AdaptersStart -.- ApplicationStart
-    ApplicationStart -.- InterfacesStart
+    Adapters -.-> Application
+    Application -.->  Interfaces
     style Style stroke:#AA00FF
     style Transitions stroke:#AA00FF
     style Actions stroke:#AA00FF
