@@ -89,7 +89,7 @@ def layout_boxes(
     connection_labels: Optional[Sequence[str]] = None,
     connection_label_color: Optional[str] = "muted",
     # placement
-    label_outside: bool = True,
+    label_position: str = "down",
     center_at: Tuple[float, float, float] = ORIGIN,
     # appearance animation (items)
     timing: str = "simultaneous",
@@ -142,8 +142,8 @@ def layout_boxes(
     connection_label_color : str, default="muted"
         Color for connector labels.
 
-    label_outside : bool, default=True
-        If True, labels are placed outside the shape. Otherwise inside.
+    label_position : str, default=down
+        If down, labels placed below; if up top of the shapes, if inside, inside the shape
     center_at : tuple[float, float, float], default=ORIGIN
         Center of the overall group.
 
@@ -200,7 +200,7 @@ def layout_boxes(
         labeled = apply_label(
             base,
             labels[i],
-            outside=label_outside,
+            position=label_position,
             label_color=per_item_label_colors[i],
         )
         items.append(labeled)
@@ -302,7 +302,7 @@ def layout_boxes(
                     conn = apply_label(
                         conn,
                         connection_labels[connector_idx],
-                        outside=False,
+                        position=False,
                         label_color=connection_label_color,
                     )
                 connectors.add(conn)

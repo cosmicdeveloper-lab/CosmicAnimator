@@ -41,7 +41,8 @@ def layout_branch(
     child_size: float = 1,
     root_label: str = "",
     child_labels: Optional[Sequence[str]] = None,
-    label_outside: bool = True,
+    child_label_position: str = "down",
+    root_label_position: str = "up",
     root_color: str = "primary",
     child_color: str = "secondary",
     arrow_color: str = "muted",
@@ -84,8 +85,10 @@ def layout_branch(
         Text label for root node.
     child_labels : list[str], optional
         Labels for children. Padded if too short.
-    label_outside : bool, default=True
-        If True, labels placed outside; otherwise inside shapes.
+    child_label_position : str, default=down
+        If down, labels placed below; if up top of the shapes, if inside, inside the shape
+    root_label_position : str, default=up
+       same as child_label_position
     root_color : str, default="primary"
         Root stroke/glow color.
     child_color : str, default="secondary"
@@ -136,7 +139,7 @@ def layout_branch(
         root_node.set_fill(opacity=0)
     root_grp: VGroup = VGroup(root_node)
     if root_label:
-        root_grp = apply_label(root_grp, root_label, outside=label_outside, label_color=root_color)
+        root_grp = apply_label(root_grp, root_label, position=root_label_position, label_color=root_color)
 
     # --- Child nodes ---------------------------------------------------------------
     children_groups = []
@@ -146,7 +149,7 @@ def layout_branch(
         ch_node = style_shape(ch_raw, color=child_color, glow=True)
         ch_grp = VGroup(ch_node)
         if child_labels[i]:
-            ch_grp = apply_label(ch_grp, child_labels[i], outside=label_outside, label_color=child_color)
+            ch_grp = apply_label(ch_grp, child_labels[i], position=child_label_position, label_color=child_color)
         if child_filled:
             ch_node.set_fill(t.get_color(child_fill_color or child_color), opacity=1)
         else:

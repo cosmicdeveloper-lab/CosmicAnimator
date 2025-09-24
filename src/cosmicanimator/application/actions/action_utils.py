@@ -87,7 +87,7 @@ def apply_label(
     basic_group: VGroup | Mobject,
     text: str,
     *,
-    outside: bool = True,
+    position: str = "down",
     label_color: Optional[str] = None,
     padding: float = 0.20,
     inside_scale: float = 0.75,
@@ -101,8 +101,8 @@ def apply_label(
         Shape or arrow to attach label to.
     text : str
         Label string. If empty, the group is returned unchanged.
-    outside : bool, default=True
-        - For shapes: if True, place below the shape. If False, place inside.
+    position : str, default=down
+        - For shapes: if down, place below the shape. If up, place top of the shape. if isnide place inside the shape
         - For arrows/lines: ignored (always midpoint placement).
     label_color : str, optional
         Color override for the text.
@@ -140,8 +140,12 @@ def apply_label(
         lbl.set_z_index(getattr(base, "z_index", 0) + 1)
 
     else:
-        if outside:
+        if position == "down":
             lbl.next_to(base, DOWN, buff=padding)
+
+        elif position == "up":
+            lbl.next_to(base, UP, buff=padding)
+
         else:
             lbl.move_to(base.get_center())
             # Shrink to fit inside
