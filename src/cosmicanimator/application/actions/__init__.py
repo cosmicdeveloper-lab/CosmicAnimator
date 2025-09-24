@@ -11,7 +11,6 @@ This package collects all action modules:
 - loop       : looping curved arrows (orbiting arcs)
 - title      : HUD titles
 - effects    : visual transitions (fade, slide, highlight, etc.)
-- narration  : (separate package) voice + subtitle orchestration
 
 Notes
 -----
