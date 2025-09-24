@@ -58,6 +58,9 @@ flowchart LR
         NV["tts.py"]
         NS["subtitle.py"]
         NG["orchestra.py"]
+        PL["policy.py"]
+        SCH[scheduler.py]
+        CN[contracts.py]
   end
  subgraph Application["Application"]
         Actions
@@ -83,6 +86,11 @@ flowchart LR
     TM --> TF & TMN
     AC --> AC2 & AC3 & AC4 & AC5 & AC6 & G
     AC1 --> AC2 & AC3
+    NS --> SCH
+    PL --> SCH
+    SCH --> NG
+    CN --> NG
+    CN --> SCH
     NS --> NG
     NV --> G
     NG --> G & AC6
