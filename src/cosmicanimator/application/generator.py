@@ -202,7 +202,10 @@ def _emit_scene_body(lines: List[str], steps: List[Dict[str, Any]], scene_class_
 
         if (line_text and not has_narrate):
             # Implicit narration: start audio+subs, then play actions concurrently inside the block
-            lines.append("        _orch = ensure_orchestra(self)")
+            lines.append(
+                "        _orch = ensure_orchestra(self, overlay_kwargs={"
+                "'wrap_chars': 30, 'max_lines': 2, 'safe_width': 0.86})"
+            )
             lines.append(f"        with _orch.narrate(\"{esc_line}\") as _trk:")
             lines.append("            _dur = float(getattr(_trk, 'duration', 0.0))")
 

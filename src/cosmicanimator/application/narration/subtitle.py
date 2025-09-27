@@ -31,7 +31,8 @@ class SubtitleOverlay(VGroup):
     """
     Subtitle rendering overlay for Manim scenes.
 
-    Responsibilities:
+    Responsibilities
+    ----------------
     - Receives pre-chunked text with durations.
     - Normalizes and clamps timing for consistent pacing.
     - Displays subtitles at the bottom of the frame, styled via
@@ -55,6 +56,7 @@ class SubtitleOverlay(VGroup):
         chars_per_sec: float = 16.0,
         min_duration: float = 1.2,
         max_duration: float = 3.8,
+        safe_width: float = 0.86,
         **style,
     ):
         """
@@ -80,6 +82,8 @@ class SubtitleOverlay(VGroup):
             Minimum duration per chunk in seconds.
         max_duration : float, default=3.8
             Maximum duration per chunk in seconds.
+        safe_width : float, default=0.86
+            Maximum fraction of frame width allowed for subtitles.
         **style :
             Extra kwargs forwarded to `manim.Text` when `use_style_text=False`.
         """
@@ -99,6 +103,7 @@ class SubtitleOverlay(VGroup):
         self.min_duration = float(max(0.0, min_duration))
         self.max_duration = float(max(self.min_duration, max_duration))
         self._default_wrap = 38
+        self.safe_width = float(max(0.5, min(0.98, safe_width)))
 
         # Runtime state
         self._current_idx: int = -1
@@ -229,7 +234,7 @@ class SubtitleOverlay(VGroup):
         return "\n".join(lines)
 
     def _make_group(self, s: str) -> VGroup:
-        """Create a styled VGroup node for a subtitle string."""
+        """Create a styled group for a subtitle string."""
         s = self._wrap(s)
         if self.use_style_text:
             node = style_text(
@@ -237,15 +242,19 @@ class SubtitleOverlay(VGroup):
                 **({"variant": self.style_variant} if self.style_variant else {}),
                 **self.style_kwargs,
             )
-            grp = node if isinstance(node, VGroup) else VGroup(node)
+            from manim import Mobject
+            grp = (
+                node
+                if isinstance(node, VGroup)
+                else (VGroup(node) if isinstance(node, Mobject) else VGroup(Text(s)))
+            )
         else:
             grp = VGroup(Text(s, **{k: v for k, v in self.style.items() if v is not None}))
 
-        # Ensure consistent width (≤ 90% of frame width)
-        max_width = self.scene.camera.frame_width * 0.9
-        if grp.width > max_width:
-            grp.scale_to_fit_width(max_width)
-
+        # Keep a constant visual width (avoid large/small jumps)
+        max_w = self.scene.camera.frame_width * self.safe_width
+        if grp.width > max_w:
+            grp.scale_to_fit_width(max_w)
         return grp
 
     def _show_text(self, s: str) -> None:

@@ -23,6 +23,7 @@ class SubtitlePolicy:
     - Split narration into balanced chunks that fit display constraints.
     - Respect sentence boundaries when possible.
     - Handle oversize sentences with recursive balanced splitting.
+    - Merge tiny tail fragments when possible.
     - Assign per-chunk durations, either estimated from text length or
       fitted to a known total duration.
 
@@ -67,7 +68,7 @@ class SubtitlePolicy:
         2. Split on sentence-like boundaries (`.`, `!`, `?`).
         3. For sentences exceeding the line budget, recursively split near
            target midpoints using punctuation or spaces as breakpoints.
-        4. Ensure each chunk fits into `(max_lines × wrap_chars)`.
+        4. Merge a tiny tail with the previous chunk if it fits.
 
         Parameters
         ----------
@@ -86,11 +87,9 @@ class SubtitlePolicy:
         width = self.wrap_chars
         max_lines = self.max_lines
 
-        # 1) Split on sentence-ish boundaries (keep punctuation)
-        parts = re.split(r'(?<=[.!?])\s+', text)
-        parts = [p for p in parts if p]
+        # Split into sentence-like parts
+        parts = [p for p in re.split(r'(?<=[.!?])\s+', text) if p]
 
-        # 2) Autosplit oversize sentences
         chunks: List[str] = []
         for p in parts:
             if self._wrapped_line_count(p, width) <= max_lines:
@@ -98,21 +97,17 @@ class SubtitlePolicy:
             else:
                 chunks.extend(self._autosplit_chunk(p, max_lines=max_lines, width=width))
 
-        return chunks
+        return self._merge_tiny_tail(chunks, width, max_lines)
 
     def _autosplit_chunk(self, text: str, *, max_lines: int, width: int) -> List[str]:
         """
         Recursively split oversize text into balanced chunks.
         """
         text = " ".join(text.split())
-        if not text:
-            return []
-        if self._wrapped_line_count(text, width) <= max_lines:
-            return [text]
+        if not text or self._wrapped_line_count(text, width) <= max_lines:
+            return [text] if text else []
 
-        # Balanced split around midpoint
         left, right = self._balanced_break(text, target=len(text) // 2)
-
         return (
             self._autosplit_chunk(left, max_lines=max_lines, width=width)
             + self._autosplit_chunk(right, max_lines=max_lines, width=width)
@@ -128,6 +123,7 @@ class SubtitlePolicy:
         words = s.split()
         if not words:
             return 0
+
         lines, cur = 1, words[0]
         for w in words[1:]:
             if len(cur) + 1 + len(w) <= width:
@@ -149,7 +145,7 @@ class SubtitlePolicy:
         if n <= 1:
             return s, ""
 
-        # Window around target for candidate break points
+        # Candidate window around target
         window = max(12, n // 6)
         lo, hi = max(1, target - window), min(n - 1, target + window)
 
@@ -160,18 +156,45 @@ class SubtitlePolicy:
         ]
         spaces = [i for i in range(lo, hi) if s[i] == " "]
 
-        pick_closest = lambda arr: (min(arr, key=lambda i: abs(i - target)) if arr else None)
+        pick = lambda arr: (min(arr, key=lambda i: abs(i - target)) if arr else None)
 
-        idx = pick_closest(punct) or pick_closest(spaces)
+        idx = pick(punct) or pick(spaces)
         if idx is None:
             all_spaces = [i for i, ch in enumerate(s) if ch == " "]
-            idx = pick_closest(all_spaces)
-        if idx is None:
-            idx = target  # fallback hard cut
+            idx = pick(all_spaces) or target
 
         left = s[: idx + 1].rstrip()
         right = s[idx + 1 :].lstrip()
         return left, right
+
+    def _merge_tiny_tail(self, chunks: List[str], width: int, max_lines: int) -> List[str]:
+        """
+        Merge a tiny tail chunk with the previous chunk if it fits.
+
+        Parameters
+        ----------
+        chunks : list[str]
+            The current list of chunks.
+        width : int
+            Wrap width in characters.
+        max_lines : int
+            Maximum lines per chunk.
+
+        Returns
+        -------
+        list[str]
+            Possibly modified chunks.
+        """
+        if len(chunks) < 2:
+            return chunks
+
+        tail = chunks[-1]
+        if len(tail) <= max(6, width // 2):
+            merged = (chunks[-2] + " " + tail).strip()
+            if self._wrapped_line_count(merged, width) <= max_lines:
+                return chunks[:-2] + [merged]
+
+        return chunks
 
     # ---------- Durations ----------
 
