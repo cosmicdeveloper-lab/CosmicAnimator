@@ -26,14 +26,14 @@ from __future__ import annotations
 from typing import Dict, Tuple, List, Optional, Any
 
 # ============================================================================
-# 0) Global switches
+# Global switches
 # ============================================================================
 
 VIDEO_PROFILE: str = "short"   # "short" | "long" | "square"
 ACTIVE_THEME: str = "light"    # "light" | "dark" (can extend with more keys)
 
 # ============================================================================
-# 1) Profiles (timing, spacing, typography)
+# Profiles (timing, spacing, typography)
 # ============================================================================
 
 PROFILES: Dict[str, Dict[str, Any]] = {
@@ -55,7 +55,7 @@ PROFILES: Dict[str, Dict[str, Any]] = {
 }
 
 # ============================================================================
-# 2) Canvas / aspect / safe zones
+# Canvas / aspect / safe zones
 # ============================================================================
 
 CANVAS: Dict[str, Dict[str, Any]] = {
@@ -69,7 +69,7 @@ RESOLUTION: Tuple[int, int] = CANVAS[VIDEO_PROFILE]["resolution"]
 SAFE: Dict[str, float] = CANVAS[VIDEO_PROFILE]["safe"]
 
 # ============================================================================
-# 3) Palettes (light/dark)
+# Palettes (light/dark)
 # ============================================================================
 
 LIGHT_PALETTE: Dict[str, str] = {
@@ -127,7 +127,7 @@ BACKGROUND_COLOR: str = active_palette()["bg"]
 DEFAULT_TEXT_COLOR: str = active_palette()["text"]
 
 # ============================================================================
-# 4) Role triplets (fill/stroke/glow)
+# Role triplets (fill/stroke/glow)
 # ============================================================================
 
 
@@ -169,7 +169,7 @@ ROLE_TRIPLETS: Dict[str, Dict[str, str]] = {
 }
 
 # ============================================================================
-# 5) Stroke widths
+# Stroke widths
 # ============================================================================
 
 STROKE_WIDTHS: Dict[str, float] = {
@@ -187,7 +187,7 @@ STROKE: Dict[str, float] = {
 }
 
 # ============================================================================
-# 6) Glow band presets
+# Glow band presets
 # ============================================================================
 
 GLOW_BANDS: Dict[str, List[Tuple[float, float]]] = {
@@ -203,7 +203,7 @@ GLOW_DEFAULT: Dict[str, Any] = {
 }
 
 # ============================================================================
-# 7) Text variants
+# Text variants
 # ============================================================================
 
 TEXT_VARIANTS: Dict[str, Dict[str, Any]] = {
@@ -213,7 +213,7 @@ TEXT_VARIANTS: Dict[str, Dict[str, Any]] = {
 }
 
 # ============================================================================
-# 8) Arrow styles
+# Arrow styles
 # ============================================================================
 
 ARROW_STYLES: Dict[str, Dict[str, Any]] = {
@@ -249,14 +249,14 @@ ARROW_STYLES: Dict[str, Dict[str, Any]] = {
 DEFAULT_ARROW_STYLE: Dict[str, Any] = ARROW_STYLES["default"]
 
 # ============================================================================
-# 9) Speaker and TTS model
+# Speaker and TTS model
 # ============================================================================
 
 SPEAKER: str = "p364"
 TTS_MODEL: str = "tts_models/en/vctk/vits"
 
 # ============================================================================
-# 10) Convenience getters
+# Convenience getters
 # ============================================================================
 
 
@@ -278,7 +278,6 @@ def speaker() -> str:
 def tts_model() -> str:
     """Return the default TTS model identifier (e.g. 'tts_models/en/vctk/vits')."""
     return TTS_MODEL
-
 
 
 def spacing() -> float:
@@ -335,7 +334,7 @@ def arrow_style(name: Optional[str]) -> Dict[str, Any]:
     return ARROW_STYLES.get((name or "default"), ARROW_STYLES["default"])
 
 # ============================================================================
-# 11) Setting resolver
+# Setting resolver
 # ============================================================================
 
 
