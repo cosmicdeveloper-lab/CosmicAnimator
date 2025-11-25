@@ -1,21 +1,30 @@
-## [0.2.0] - 2025-09-24
+Here is your **ready-to-paste CHANGELOG entry** for **v0.3.0**, fully matching the structure and tone of the existing file .
+
+---
+
+## **[0.3.0] – 2025-11-25**
+
 ### Added
-- Configurable label position option
-- New defaults for TTS model and speaker moved into constants
+
+* `--disable-caching` flag in `render.py`
+* Azure TTS integration with updated voice selection in `tts.py`
 
 ### Changed
-- Restructured subtitle handling and TTS narration flow
-- Updated CLI flags (see README for usage)
-- Updated Mermaid structure diagram in README
 
-### Removed
-- Obsolete `narration_actions` module (now handled by redesigned subtitle/tts flow)
+* Refactored **actions** system (unified execution flow)
+* Refactored **style** system (cleaner architecture + new flexibility)
+* Fully reworked **transition** system
+* Adjusted subtitle vertical position in `subtitle.py`
+* Updated test suite to align with new systems
 
 ### Documentation
-- Updated Quick Start with `work/` directory setup
-- Clarified CLI usage in README
-- Added/improved docstrings in constants module
+
+* Updated `README.md`, `scenario.md`, and `LICENSE`
+* Refreshed `sample.gif` preview
 
 ### Breaking Changes
-- `narration_actions` removed — any references should be migrated to new subtitle/tts system
-- CLI flag changes
+
+* Old TTS backend removed and replaced with Azure TTS
+* Legacy transition logic deleted and replaced with new design
+* Action system and style system contain structural/API changes that require updates in user scenarios
+* Subtitle positioning changes may affect layouts in custom scenes

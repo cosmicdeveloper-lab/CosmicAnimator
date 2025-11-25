@@ -1,6 +1,6 @@
 [project]
 name = "cosmicanimator"
-version = "0.2.0"
+version = "0.3.0"
 description = "Theme-aware, Manim-based animation generator with narration and subtitles"
 authors = [
   { name = "Benyamin Amini", email = "cosmicdeveloper.b@gmail.com" }
