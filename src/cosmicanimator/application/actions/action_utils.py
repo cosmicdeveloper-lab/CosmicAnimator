@@ -18,14 +18,12 @@ Notes
 
 from __future__ import annotations
 from typing import Optional, Union, Callable
-
 from manim import (
     VGroup, Mobject, UP, RIGHT, DOWN,
-    Square, Circle, Triangle, RegularPolygon, Star, Ellipse,
-    Line, Arrow, CurvedArrow,
+    Triangle, RegularPolygon, Star, Ellipse,
+    Line, Arrow, CurvedArrow, RoundedRectangle, Annulus
 )
 from cosmicanimator.adapters.style import style_text
-
 
 ShapeKind = Union[str, Callable[[], Mobject]]
 
@@ -35,9 +33,9 @@ ShapeKind = Union[str, Callable[[], Mobject]]
 # ---------------------------------------------------------------------------
 
 SHAPE_REGISTRY = {
-    "square":   lambda: Square(),
-    "circle":   lambda: Circle(),
-    "triangle": lambda: Triangle(),
+    "square":   lambda: RoundedRectangle(corner_radius=0.55, width=2, height=2),
+    "circle":   lambda: Annulus(inner_radius=0.6, outer_radius=1.2),
+    "triangle": lambda: Triangle().scale(1.2),
     "pentagon": lambda: RegularPolygon(n=5),
     "hexagon":  lambda: RegularPolygon(n=6),
     "star":     lambda: Star(n=5),
@@ -49,7 +47,7 @@ SHAPE_REGISTRY = {
 # Builders
 # ---------------------------------------------------------------------------
 
-def make_unit_shape(kind: ShapeKind, size: float = 1.0) -> Mobject:
+def make_unit_shape(kind: ShapeKind, size: float = None) -> Mobject:
     """
     Build a unit-sized shape.
 
@@ -77,7 +75,7 @@ def make_unit_shape(kind: ShapeKind, size: float = 1.0) -> Mobject:
         shape = SHAPE_REGISTRY.get(key, SHAPE_REGISTRY["square"])()
 
     # Apply uniform scaling
-    if size != 1.0:
+    if size:
         shape.scale(size)
 
     return shape
@@ -89,7 +87,7 @@ def apply_label(
     *,
     position: str = "down",
     label_color: Optional[str] = None,
-    padding: float = 0.20,
+    padding: float = 0.40,
     inside_scale: float = 0.75,
 ) -> VGroup:
     """

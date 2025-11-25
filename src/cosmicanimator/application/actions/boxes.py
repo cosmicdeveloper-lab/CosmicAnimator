@@ -1,295 +1,169 @@
 # src/cosmicanimator/application/actions/boxes.py
 
 """
-Action: lay out labeled shapes ("boxes") with optional connectors.
+Action: layout_boxes
 
-Registers
----------
-- `layout_boxes` : arrange boxes in rows, columns, or grids, with optional:
-    * Labels (outside or inside)
-    * Connectors (arrow, line, curved arrow)
-    * Appearance animations (fade, slide, or none)
+Creates one or more styled shapes ("boxes") arranged in a row, column, or grid,
+optionally with connecting lines or arrows between them.
 
-Notes
+Features
+--------
+- Supports several shape kinds (from SHAPE_REGISTRY).
+- Optional glow and fill styling.
+- Automatic label placement.
+- Connectors between adjacent boxes (arrow, line, curved arrow).
+- Returns a combined VGroup and reveal animation.
+
+Usage
 -----
-- Shapes are normalized via `make_unit_shape` + `style_shape`.
-- Labels are attached with `apply_label` (styled text).
-- IDs are auto-sanitized from labels (fallback: box1, box2, ...).
-- Connectors are labeled separately (connector1, connector2, ...).
+Registered as `"layout_boxes"` and callable from the action pipeline.
 """
 
 from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
-from manim import DOWN, ORIGIN, RIGHT, Mobject, VGroup
+from math import ceil, sqrt
+from manim import DOWN, ORIGIN, RIGHT, UP, Mobject, VGroup, LEFT, Write, rush_from
 from cosmicanimator.core.theme import current_theme as t
 from cosmicanimator.adapters.style import (
     curved_arrow,
     dotted_line,
     glow_arrow,
     style_shape,
+    style_text
 )
-from cosmicanimator.adapters.transitions import fade_in_group, slide_in, Timing
-from .action_utils import (
-    SHAPE_REGISTRY,
-    apply_label,
-    make_unit_shape
-)
+from cosmicanimator.adapters.transitions.reveal import reveal
+from .action_utils import SHAPE_REGISTRY, apply_label, make_unit_shape
 from .base import ActionContext, ActionResult, register
+
 
 ShapeKind = Union[str, Callable[[], Mobject]]
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _deepest_geometry(node: Mobject) -> Mobject:
-    """
-    Return the deepest geometry node for stable connector anchoring.
-
-    Implementation detail:
-    - Traverses submobjects by repeatedly taking the *last* child until a leaf.
-    - Ensures connector arrows attach to the visible "core" of a shape.
-    """
-    current = node
-    while getattr(current, "submobjects", None):
-        subs = current.submobjects
-        if not subs:
-            break
-        current = subs[-1]
-    return current
-
-
-# ---------------------------------------------------------------------------
-# Main action
-# ---------------------------------------------------------------------------
 
 @register("layout_boxes")
 def layout_boxes(
     ctx: ActionContext,
     *,
     shape: ShapeKind = "square",
-    size: float = 1.0,
-    count: int = 4,
+    size: float = None,
+    count: int = 3,
     # layout
     direction: str = "row",  # "row" | "column" | "grid"
     spacing: float = 1.2,
-    rows: Optional[int] = None,
-    cols: Optional[int] = None,
+    runtime: float = 0.6,
     # styling
     color: str = "primary",
     filled: bool = False,
-    fill_color: Optional[str] = None,
     labels: Optional[Sequence[str]] = None,
     label_color: Optional[str] = None,
-    label_colors: Optional[Sequence[Optional[str]]] = None,
     # connections
     connection_type: Optional[str] = None,  # "arrow" | "line" | "curved_arrow"
     arrow_color: str = "muted",
     connection_labels: Optional[Sequence[str]] = None,
-    connection_label_color: Optional[str] = "muted",
     # placement
     label_position: str = "down",
     center_at: Tuple[float, float, float] = ORIGIN,
-    # appearance animation (items)
-    timing: str = "simultaneous",
-    appear: str = "fade",            # "fade" | "slide" | "none"
-    appear_direction: str = "left",  # for slide
-    appear_run_time: float = 0.6,
-    # appearance animation (connectors)
-    connection_appear: str = "fade",  # "fade" | "slide" | "none"
 ) -> ActionResult:
     """
-    Lay out boxes with labels, optional connectors, and appearance animation.
-
-    Parameters
-    ----------
-    ctx : ActionContext
-        Provides scene, store, and theme.
-    shape : str | Callable, default="square"
-        Shape kind (from SHAPE_REGISTRY) or a custom callable returning a Mobject.
-    size: float = 1.0
-        size of the shape in scale
-    count : int, default=4
-        Number of shapes to create (≥1).
-
-    direction : {"row", "column", "grid"}, default="row"
-        Layout orientation.
-    spacing : float, default=1.2
-        Buffer spacing between shapes.
-    rows, cols : int, optional
-        Row/column count for grid layouts. Auto-computed if not given.
-
-    color : str, default="primary"
-        Base stroke/glow color (theme role or hex).
-    filled : bool, default=True
-        Whether to fill shapes.
-    fill_color : str, optional
-        Fill color override. Defaults to `color` if not given.
-    labels : list[str], optional
-        Per-shape text labels. Shorter lists are padded.
-    label_color : str, optional
-        Default label color if no per-item list is given.
-    label_colors : list[str|None], optional
-        Per-shape label colors. Shorter lists are padded.
-
-    connection_type : {"arrow", "line", "curved_arrow"}, optional
-        If given, connect adjacent shapes with connectors.
-    arrow_color : str, default="muted"
-        Stroke/glow color for connectors.
-    connection_labels : list[str], optional
-        Optional labels for connectors.
-    connection_label_color : str, default="muted"
-        Color for connector labels.
-
-    label_position : str, default=down
-        If down, labels placed below; if up top of the shapes, if inside, inside the shape
-    center_at : tuple[float, float, float], default=ORIGIN
-        Center of the overall group.
-
-    appear : {"fade", "slide", "none"}, default="fade"
-        How shapes appear.
-    appear_direction : {"left", "right", "up", "down"}, default="left"
-        Slide direction for appear="slide".
-    appear_run_time : float, default=0.6
-        Duration of appearance animations.
-    timing : {"simultaneous","sequential","stagger"}, default="simultaneous"
-        Scheduling of item appearances.
-
-    connection_appear : {"fade", "slide", "none"}, default="fade"
-        How connectors appear.
-
-    Returns
-    -------
-    ActionResult
-        - group : VGroup (boxes + connectors)
-        - ids : dict of {id -> mobject}
-        - animations : list of appearance animations
+    Layout a sequence of styled shapes and optionally connect them with lines or arrows.
+    Labels are handled separately (not grouped into shapes), similar to `layout_branch`.
     """
-    # --- Normalize inputs ---
+    # --- Normalize inputs ---------------------------------------------------
     n = max(1, int(count))
-
     labels = list(labels) if labels is not None else ["" for _ in range(n)]
     if len(labels) < n:
         labels += [""] * (n - len(labels))
 
-    # Per-item label colors
-    fallback_label_color = label_color or color
-    if label_colors is None:
-        per_item_label_colors = [fallback_label_color] * n
-    else:
-        tmp = list(label_colors) + [None] * max(0, n - len(label_colors))
-        per_item_label_colors = [
-            (c if c is not None else fallback_label_color) for c in tmp[:n]
-        ]
-
-    # --- Build items ---
-    items: List[VGroup] = []
+    # --- Build shapes (without labels) --------------------------------------
+    items = []
     for i in range(n):
         raw = make_unit_shape(shape, size)
         base = style_shape(raw, color=color, glow=True)
 
-        # Optional fill (tolerant if unsupported)
         if filled:
             try:
                 geom = base.submobjects[-1] if base.submobjects else base
-                geom.set_fill(t.get_color(fill_color or color), opacity=1)
+                geom.set_fill(t.get_color(color), opacity=1)
             except Exception:
                 pass
 
-        labeled = apply_label(
-            base,
-            labels[i],
-            position=label_position,
-            label_color=per_item_label_colors[i],
-        )
-        items.append(labeled)
+        items.append(base)
 
-    group = VGroup(*items)
+    shapes = VGroup(*items)
 
-    # --- Arrange items ---
-    if direction == "column":
-        group.arrange(DOWN, buff=spacing)
+    # --- Arrange items ------------------------------------------------------
+    if direction == "row":
+        shapes.arrange(RIGHT, buff=spacing)
+        layout_for_connect = "row"
+
+    elif direction == "column":
+        shapes.arrange(DOWN, buff=spacing)
         layout_for_connect = "column"
 
-    elif direction == "grid":
-        from math import ceil, sqrt
-
-        if rows is None and cols is None:
-            cols = max(1, int(round(sqrt(n))))
-            rows = int(ceil(n / cols))
-        elif rows is None:
-            rows = (n + int(cols) - 1) // int(cols)
-        elif cols is None:
-            cols = (n + int(rows) - 1) // int(rows)
-
-        r, c = int(rows), int(cols)
+    else:  # "grid"
+        cols = max(1, int(round(sqrt(n))))
+        rows = int(ceil(n / cols))
         grid_rows: List[VGroup] = []
         idx = 0
-        for _ in range(r):
-            row_items = [items[idx + j] for j in range(min(c, n - idx))]
+        for _ in range(rows):
+            row_items = [items[idx + j] for j in range(min(cols, n - idx))]
             row_group = VGroup(*row_items).arrange(RIGHT, buff=spacing)
             grid_rows.append(row_group)
             idx += len(row_items)
             if idx >= n:
                 break
-        group = VGroup(*grid_rows).arrange(DOWN, buff=spacing)
+        shapes = VGroup(*grid_rows).arrange(DOWN, buff=spacing)
         layout_for_connect = "row"
 
-    else:  # "row"
-        group.arrange(RIGHT, buff=spacing)
-        layout_for_connect = "row"
+    shapes.move_to(center_at)
 
-    group.move_to(center_at)
+    # --- Labels (created separately after layout) ----------------------------
+    label_mobs = []
+    for i, shape in enumerate(items):
+        txt = labels[i]
+        if not txt:
+            label_mobs.append(None)
+            continue
+        lbl = style_text(txt, variant="label", color=label_color or color)
 
-    # --- Appearance animations (items) ---
-    animations = []
-    if appear == "slide":
-        animations.append(
-            slide_in(
-                group.submobjects,
-                direction=appear_direction,
-                run_time=appear_run_time,
-                timing=Timing(mode=timing)
-            )
-        )
-    elif appear == "fade":
-        animations.append(
-            fade_in_group(
-                group.submobjects,
-                run_time=appear_run_time,
-                timing=Timing(mode=timing)
-            )
-        )
+        if label_position == "up":
+            lbl.next_to(shape, UP, buff=0.3)
+        elif label_position == "left":
+            lbl.next_to(shape, LEFT, buff=0.3)
+        elif label_position == "right":
+            lbl.next_to(shape, RIGHT, buff=0.3)
+        else:
+            lbl.next_to(shape, DOWN, buff=0.3)
 
-    # --- Optional connectors ---
+        label_mobs.append(lbl)
+
+    labels_group = VGroup(*[m for m in label_mobs if m is not None])
+
+    # --- Connectors ----------------------------------------------------------
     connectors = VGroup()
-
     if connection_type in ("arrow", "line", "curved_arrow"):
         if direction == "grid":
             sequences: List[Sequence[VGroup]] = [
-                list(row.submobjects) for row in group.submobjects
+                list(row.submobjects) for row in shapes.submobjects
             ]
         else:
             sequences = [items]
 
         connector_idx = 0
         for seq in sequences:
-            if layout_for_connect == "column":
-                start_edge, end_edge = "get_bottom", "get_top"
-                curved_start_edge, curved_end_edge = "get_right", "get_right"
-            else:
+            if layout_for_connect == "row":
                 start_edge, end_edge = "get_right", "get_left"
                 curved_start_edge, curved_end_edge = "get_top", "get_top"
+                buffer = UP * 0.3
+            else:  # column
+                start_edge, end_edge = "get_bottom", "get_top"
+                curved_start_edge, curved_end_edge = "get_right", "get_right"
+                buffer = RIGHT * 0.2
 
             for prev, nxt in zip(seq, seq[1:]):
-                prev_geom = _deepest_geometry(prev.submobjects[0] if prev.submobjects else prev)
-                next_geom = _deepest_geometry(nxt.submobjects[0] if nxt.submobjects else nxt)
-
-                start_pt = getattr(prev_geom, start_edge)()
-                end_pt = getattr(next_geom, end_edge)()
-                curved_start_pt = getattr(prev_geom, curved_start_edge)()
-                curved_end_pt = getattr(next_geom, curved_end_edge)()
+                start_pt = getattr(prev, start_edge)()
+                end_pt = getattr(nxt, end_edge)()
+                curved_start_pt = getattr(prev, curved_start_edge)() + buffer
+                curved_end_pt = getattr(nxt, curved_end_edge)() + buffer
 
                 if connection_type == "arrow":
                     conn = glow_arrow(start=start_pt, end=end_pt, color=arrow_color)
@@ -299,45 +173,26 @@ def layout_boxes(
                     conn = dotted_line(start=start_pt, end=end_pt, color=arrow_color)
 
                 if connection_labels and connector_idx < len(connection_labels):
-                    conn = apply_label(
-                        conn,
-                        connection_labels[connector_idx],
-                        position=False,
-                        label_color=connection_label_color,
-                    )
-                connectors.add(conn)
+                    conn_lbl = style_text(connection_labels[connector_idx], variant="label", color=arrow_color)
+                    conn_lbl.next_to(conn, UP, buff=0.2)
+                    connectors.add(VGroup(conn, conn_lbl))
+                else:
+                    connectors.add(conn)
                 connector_idx += 1
 
-        # Connector appearance
-        if connection_appear == "slide":
-            animations.append(
-                slide_in(
-                    connectors.submobjects,
-                    direction=appear_direction,
-                    run_time=appear_run_time,
-                    timing=Timing(mode=timing)
-                )
-            )
-        elif connection_appear == "fade":
-            animations.append(
-                fade_in_group(
-                    connectors.submobjects,
-                    run_time=appear_run_time,
-                    timing=Timing(mode=timing)
-                )
-            )
+    # --- Combine -------------------------------------------------------------
+    group = VGroup(shapes, connectors, labels_group).move_to(center_at)
 
-    # --- Finalize result ---
-    ids: Dict[str, Mobject] = {
-        f"box{i + 1}": g for i, g in enumerate(items)
-    }
-    ids.update({
-        f"connector{i + 1}": conn
-        for i, conn in enumerate(connectors)
-    })
+    # --- Appearance animation ------------------------------------------------
+    animations = [reveal(shapes, run_time=runtime)]
+    if connection_type:
+        animations.append(reveal(connectors, run_time=runtime))
+    animations += [Write(m, rate_func=rush_from) for m in label_mobs if m is not None]
 
-    group_all = VGroup(group, connectors)
-    group_all.move_to(center_at)
+    # --- Finalize result -----------------------------------------------------
+    ids: Dict[str, Mobject] = {f"shape{i + 1}": g for i, g in enumerate(items)}
+    ids.update({f"connector{i + 1}": conn for i, conn in enumerate(connectors)})
+    ids.update({f"label{i + 1}": lbl for i, lbl in enumerate(label_mobs) if lbl is not None})
+
     ctx.store.update(ids)
-
-    return ActionResult(group=group_all, ids=ids, animations=animations)
+    return ActionResult(group=group, ids=ids, animations=animations)

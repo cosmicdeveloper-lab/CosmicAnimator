@@ -21,7 +21,6 @@ Notes
 from .base import *
 from .boxes import *
 from .diagrams import *
-from .loop import *
 from .title import *
 from .effects import *
 

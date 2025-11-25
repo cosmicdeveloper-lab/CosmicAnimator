@@ -63,32 +63,36 @@ def _alloc(total, parts):
 def _fade_helper_code() -> str:
     return """
 def _safe_fade_clear(scene, run_time=0.15, targets=None):
-    mobs = list(targets) if targets is not None else list(scene.mobjects)
+    # Skip background layers (marked with _is_bg=True) so they persist across steps
+    def _non_bg(m):
+        try:
+            return not bool(getattr(m, "_is_bg", False))
+        except Exception:
+            return True
+
+    mobs = list(targets) if targets is not None else [m for m in list(scene.mobjects) if _non_bg(m)]
     if not mobs:
         return
     anims = []
     for m in mobs:
         try:
-            # VMobject: fade both fill and stroke (important when filled=False)
             if isinstance(m, VMobject):
                 anims.append(m.animate.set_fill(opacity=0).set_stroke(opacity=0))
-            # Image/other mobjects that support set_opacity
             elif hasattr(m, "set_opacity"):
                 anims.append(m.animate.set_opacity(0))
             else:
-                # last resort: tiny scale so it visually disappears
                 anims.append(m.animate.scale(0.01))
-        except Exception as e:
+        except Exception:
             pass
     if anims:
         scene.play(*anims, run_time=run_time)
-    # ensure nothing keeps running / holding refs
     for m in mobs:
         try:
             m.clear_updaters()
         except Exception:
             pass
     scene.remove(*mobs)
+
 """
 
 
@@ -101,6 +105,8 @@ def _gen_common_prelude(lines: List[str], scenario_json_basename: Optional[str])
     # ✅ use our centralized narration wrapper (Orchestra via ensure_orchestra)
     lines.append("from cosmicanimator.application.narration import VoiceScene, ensure_orchestra")
     lines.append("from cosmicanimator.application.actions import ActionContext, get_action")
+    lines.append(
+        "from cosmicanimator.core.background import create_starfield, add_parallax_motion")
 
     lines.append("")
     lines.append("# Map JSON/entity effect names to actual callables")
@@ -165,17 +171,40 @@ def _apply_effect_animations(self, ctx: ActionContext, res, effect_specs):
             except Exception:
                 print(f"[warn] effect '{name}' needs targets but none were provided")
     return anims
+    
+def _setup_background(scene, opts=None):
+    '''
+    Create & register a persistent parallax starfield.
+    Marks layers with _is_bg=True so clears won't remove them.
+    opts: { 'seed': int, 'speeds': (far, mid), 'layers': [(count,radius,(zmin,zmax),color,opacity)], 'shooting': {...}|False }
+    '''
+    opts = opts or {}
+    layers = create_starfield(layer_defs=opts.get("layers"), seed=opts.get("seed"))
+    # mark & add
+    for vg in layers:
+        try:
+            vg._is_bg = True
+        except Exception:
+            pass
+        scene.add(vg)
+    add_parallax_motion(scene, layers, speeds=opts.get("speeds", (0.15, 0.20)))
+
+    return layers    
 """
     )
 
 
 def _emit_scene_body(lines: List[str], steps: List[Dict[str, Any]], scene_class_name: str) -> None:
     FADE_OUT_TIME = 0.10  # quick clear between narrated lines
-    lines.append(f"class {scene_class_name}(MovingCameraScene, VoiceScene):")
+    lines.append(f"class {scene_class_name}(ThreeDScene, VoiceScene):")
     lines.append("    def construct(self):")
     # Configure narrator defaults (your VoiceScene can wire to Coqui, etc.)
     lines.append("        self.configure_voice()")
     lines.append("        ctx = ActionContext(scene=self, store={}, theme={})")
+    lines.append("        self.set_camera_orientation(phi=25 * DEGREES)")
+    lines.append('        self._bg_layers = _setup_background(self)')
+    lines.append("")
+
     lines.append("")
 
     for idx, step in enumerate(steps):
