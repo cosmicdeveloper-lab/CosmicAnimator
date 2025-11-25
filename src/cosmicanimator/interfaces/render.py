@@ -57,6 +57,9 @@ def render(
     if not scene_path.exists():
         raise FileNotFoundError(f"Scene file not found: {scene_path}")
 
-    cmd = f"manim {quality} -r {resolution} {scene_path} {scene_class}"
+    cmd = (
+        f"manim {quality} --disable_caching "
+        f"-r {resolution} {scene_path} {scene_class}"
+    )
     print(f"▶ Running: {cmd}")
     os.system(cmd)
