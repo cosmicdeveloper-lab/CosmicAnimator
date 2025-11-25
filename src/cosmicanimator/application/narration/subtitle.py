@@ -260,7 +260,7 @@ class SubtitleOverlay(VGroup):
     def _show_text(self, s: str) -> None:
         """Render a subtitle string at the bottom of the frame."""
         grp = self._make_group(s)
-        self._caption_node.become(grp).to_edge(DOWN).shift(DOWN * 4)
+        self._caption_node.become(grp).to_edge(DOWN).shift(DOWN * 3)
 
     def _update(self, _mobj) -> None:
         """Frame updater: show current chunk if within schedule window."""
