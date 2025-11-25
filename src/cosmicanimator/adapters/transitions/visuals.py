@@ -1,200 +1,106 @@
 # src/cosmicanimator/adapters/transitions/visuals.py
 
 """
-Visual overlay effects for CosmicAnimator.
+Visual effects utilities for Manim.
 
-Currently provides:
-- `ripple_effect`: concentric rings expanding or contracting from targets.
-
-Notes
------
-- Rings are styled with theme-aware glow overlays.
-- Colors can be explicit (hex/role) or `"auto"` to match target colors.
-- Designed for short-form emphasis animations (ripples, pings, echoes).
+Includes:
+- `shine`: pulsing glow transformation.
+- `spin`: continuous rotation with automatic stop timer.
 """
 
 from __future__ import annotations
-from typing import Optional, Iterable, List, Union
 import numpy as np
 from manim import (
-    VMobject,
-    VGroup,
-    Circle,
-    AnimationGroup,
-    Succession,
-    FadeIn,
-    FadeOut,
-    Wait,
-    smooth,
+    VMobject, VGroup, ValueTracker, Animation, AnimationGroup,
+    Transform, UP
 )
-from cosmicanimator.core.theme import current_theme as t
-from .transition_utils import collect_target_colors, build_glow_overlay
-from cosmicanimator.adapters.style import resolve_role_or_hex
-
-VMOrGroup = Union[VMobject, VGroup]
+from cosmicanimator.adapters.style import add_glow_layers
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _max_half_extent(m: VMOrGroup) -> float:
+def shine(targets: list[VMobject | VGroup]) -> AnimationGroup:
     """
-    Estimate a good base radius for ripple rings.
+    Create a pulsing glow effect by alternating between target and its glow layers.
 
     Parameters
     ----------
-    m : VMobject | VGroup
-        Target object.
-
-    Returns
-    -------
-    float
-        Half of the larger of width/height (fallback: bounding box).
-    """
-    try:
-        w = float(m.width)
-        h = float(m.height)
-    except Exception:
-        bbox = m.get_bounding_box()  # [[x0,y0,0],[x1,y1,0],[x2,y2,0]]
-        x0, y0, _ = bbox[0]
-        x1, y1, _ = bbox[1]
-        x2, y2, _ = bbox[2]
-        w = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
-        h = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-    return 0.5 * max(w, h)
-
-
-def _make_ring(center, radius: float, color: str, width: float, opacity: float) -> Circle:
-    """
-    Create a stroked circle (ring) with glow overlay.
-
-    Parameters
-    ----------
-    center : array-like
-        Position to center the ring.
-    radius : float
-        Circle radius.
-    color : str
-        Stroke color (theme role or hex).
-
-    Returns
-    -------
-    Circle
-        Styled circle with glow overlay applied.
-    """
-    ring = Circle(radius=radius)
-    ring.move_to(center)
-    ring.set_fill(opacity=0.0)
-    ring = build_glow_overlay(shape=ring, color=color)
-    return ring
-
-
-# ---------------------------------------------------------------------------
-# Ripple effect
-# ---------------------------------------------------------------------------
-
-def ripple_effect(
-    targets: Iterable[VMobject | VGroup],
-    *,
-    color: str = "auto",
-    rings: int = 3,
-    ring_gap: float = 0.25,
-    stroke_width: float = 4.0,
-    base_opacity: float = 0.9,
-    from_edge: bool = True,
-    center_override: Optional[np.ndarray] = None,
-    inward: bool = False,
-    fade_in: bool = False,
-    fade_out: bool = True,
-    in_time: float = 0.10,
-    expand_time: float = 0.8,
-    hold_time: float = 0.00,
-    out_time: float = 0.25,
-    ring_lag: float = 0.12,
-    target_lag: float = 0.05,
-    rate_func=smooth,
-) -> AnimationGroup:
-    """
-    Create ripple rings expanding or contracting from targets.
-
-    Parameters
-    ----------
-    targets:
-        Objects to ripple from.
-    color:
-        Ring stroke color (theme role, hex, or "auto" = match targets).
-    rings:
-        Number of rings per target.
-    ring_gap:
-        Spacing between rings.
-    stroke_width:
-        Stroke width of rings (not heavily used since glow overlays dominate).
-    base_opacity:
-        Initial ring opacity.
-    from_edge:
-        If True, rings start at object’s edge; else, near its center.
-    center_override:
-        Explicit center point (overrides target center).
-    inward:
-        If True, rings shrink inward instead of expanding.
-    fade_in, fade_out:
-        Whether rings fade in/out.
-    in_time, expand_time, hold_time, out_time:
-        Timings for phases (seconds).
-    ring_lag:
-        Stagger between rings for wave-train effect.
-    target_lag:
-        Stagger between multiple targets.
-    rate_func:
-        Easing function for expansion/shrink.
+    targets
+        Iterable of Manim objects to apply the shine effect to.
 
     Returns
     -------
     AnimationGroup
-        Combined ripple animations.
+        Combined pulse animation for all targets.
     """
-    per_target_colors = None
-    if str(color).lower() == "auto":
-        per_target_colors = collect_target_colors(
-            targets, include_text=False, fallback="primary", per_part=False
+    animations = []
+    for target in targets:
+        glow = add_glow_layers(
+            target,
+            bands=[
+                (1.0, 0.15),
+                (1.8, 0.06),
+                (3.2, 0.025),
+                (6.0, 0.010),
+                (9.0, 0.005),
+            ],
+            count=5,
+            spread=2.0,
+            max_opacity=0.20,
         )
-        targets = list(targets)  # reuse safely
+        animations.append(Transform(target, glow))
+        animations.append(Transform(glow, target))
 
-    all_targets: List = []
-    for idx, t in enumerate(targets):
-        center = center_override if center_override is not None else t.get_center()
-        base_r = _max_half_extent(t) if from_edge else 0.01
+    return AnimationGroup(*animations)
 
-        ring_animations: List = []
-        for i in range(rings):
-            start_r = base_r + (i * ring_gap)
-            ring_color = per_target_colors[idx] if per_target_colors else color
 
-            if inward:
-                ring = _make_ring(center, radius=start_r * 1.8, color=ring_color, width=stroke_width, opacity=base_opacity)
-                start_scale = 1.0
-                end_scale = max(1e-3, (start_r / (start_r * 1.8)))
-            else:
-                ring = _make_ring(center, radius=start_r, color=ring_color, width=stroke_width, opacity=base_opacity)
-                start_scale = 0.05 if from_edge else 0.2
-                end_scale = 1.0
+def spin(
+    targets: list[VMobject | VGroup],
+    *,
+    angular_speed_deg_per_sec: float = 220.0,
+    axis=UP,
+    run_time: float = 3.0,
+) -> Animation:
+    """
+    Apply continuous rotation updaters to targets for a set duration.
 
-            ring.scale(start_scale, about_point=center)
+    Parameters
+    ----------
+    targets
+        Manim objects to spin.
+    angular_speed_deg_per_sec
+        Rotation speed in degrees per second.
+    axis
+        Axis to rotate around (default: UP).
+    run_time
+        Duration before automatically stopping rotation.
 
-            steps: List = []
-            steps.append(FadeIn(ring, run_time=in_time if fade_in else 0, rate_func=rate_func))
-            steps.append(
-                ring.animate(run_time=expand_time, rate_func=rate_func).scale(
-                    end_scale / start_scale, about_point=center
-                )
-            )
-            if hold_time > 0:
-                steps.append(Wait(hold_time))
-            steps.append(FadeOut(ring, run_time=out_time if fade_out else 0, rate_func=rate_func))
+    Returns
+    -------
+    Animation
+        Wait-like animation that keeps updaters active for `run_time`.
+    """
 
-            ring_animations.append(Succession(*steps))
+    def _flatten(obj):
+        if isinstance(obj, (list, tuple, VGroup)):
+            out = []
+            for x in obj:
+                out.extend(_flatten(x))
+            return out
+        return [obj]
 
-        all_targets.append(AnimationGroup(*ring_animations, lag_ratio=ring_lag))
+    items = _flatten(targets)
+    omega = np.deg2rad(angular_speed_deg_per_sec)
 
-    return AnimationGroup(*all_targets, lag_ratio=target_lag)
+    for t in items:
+        t.add_updater(lambda m, dt, ax=axis: m.rotate(omega * dt, axis=ax))
+
+    timer = ValueTracker(0)
+
+    def advance_timer(m, dt):
+        m.increment_value(dt)
+        if m.get_value() >= run_time:
+            for t in items:
+                t.clear_updaters()
+            m.clear_updaters()
+
+    timer.add_updater(advance_timer)
+    return Animation(timer, run_time=run_time)
