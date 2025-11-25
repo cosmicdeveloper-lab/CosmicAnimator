@@ -1,24 +1,33 @@
 # src/cosmicanimator/application/narration/tts.py
 
 """
-Text-to-Speech (TTS) integration for Manim scenes using Coqui TTS.
+Text-to-Speech (TTS) integration for Manim scenes using **Azure TTS**.
 
 This module provides:
-- `VoiceScene`: a base scene with locked-in Coqui TTS configuration.
+- `VoiceScene`: a base scene with locked-in Azure TTS configuration.
 - `start_voiceover`: a context manager to simplify narration handling.
+
+Notes
+-----
+- Requires environment variables for Azure:
+  AZURE_SPEECH_KEY, AZURE_SPEECH_REGION
+- Voice names look like: "en-US-JennyNeural", "en-GB-RyanNeural", etc.
 """
 
 from __future__ import annotations
 from contextlib import contextmanager
-from typing import Optional, Union
+from typing import Optional, Union, Any, Dict
+import os
 from manim_voiceover import VoiceoverScene
-from manim_voiceover.services.coqui import CoquiService
+from manim_voiceover.services.azure import AzureService
 from cosmicanimator.core.theme import current_theme as t
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class VoiceScene(VoiceoverScene):
     """
-    Base scene class that locks in Coqui TTS configuration.
+    Base scene class that locks in Azure TTS configuration.
 
     Once configured with `.configure_voice(...)`, the speech service
     cannot be overridden unless explicitly allowed.
@@ -28,66 +37,98 @@ class VoiceScene(VoiceoverScene):
 
     def configure_voice(
         self,
-        service: Optional[CoquiService] = None,
+        service: Optional[AzureService] = None,
         *,
-        model: Optional[str] = None,
-        speaker: Optional[Union[str, int]] = None,
-        **coqui_kwargs,
+        # Backward-compat with Coqui-based call sites:
+        speaker: Optional[Union[str, int]] = None,  # treated as 'voice' if str
+        # Azure-native options:
+        voice: Optional[str] = None,
+        style: Optional[str] = None,
+        role: Optional[str] = None,
+        **azure_kwargs: Any,
     ) -> None:
         """
-        Configure the Coqui TTS voice for this scene.
+        Configure the Azure TTS voice for this scene.
 
         Parameters
         ----------
-        service : Optional[CoquiService], default=None
-            Existing CoquiService to reuse. If None, a new one is created.
-        model : Optional[str], default=None
-            TTS model name. Falls back to theme defaults if not provided.
+        service : Optional[AzureService], default=None
+            Existing AzureService to reuse. If None, a new one is created.
         speaker : str | int, optional
-            Speaker identifier (string name or index).
-        **coqui_kwargs :
-            Extra keyword arguments passed to `CoquiService`.
+            If str, treated as Azure 'voice' (e.g., "en-US-JennyNeural").
+            If int, ignored (Azure voices are name-based).
+        voice : str, optional
+            Azure voice name (e.g., "en-US-JennyNeural"). If not provided,
+            falls back to theme defaults or a sane built-in.
+        style : str, optional
+            Azure speaking style (e.g., "general", "newscast", ...).
+        role : str, optional
+            Azure speaking role (if supported by the selected voice).
+        **azure_kwargs :
+            Extra keyword args forwarded to `AzureService`.
 
         Notes
         -----
-        - If a service is created, the speaker is resolved by index or name.
         - Locks the voice configuration to prevent accidental overrides.
+        - Environment variables AZURE_SPEECH_KEY and AZURE_SPEECH_REGION must
+          be set for authentication.
         """
-        # Fallback to theme defaults if not provided
-        speaker = speaker or t.get_speaker()
-        model = model or t.get_tts_model()
+        # Resolve voice preference (theme -> provided)
+        # `t.get_speaker()` is reused to store a default Azure voice name.
+        resolved_voice = (
+            voice
+            or (speaker if isinstance(speaker, str) else None)
+            or getattr(t, "get_speaker", lambda: None)()
+            or "en-US-JennyNeural"
+        )
+
+        # Optionally allow theme to provide default style via t.get_tts_style()
+        if style is None and hasattr(t, "get_speaker_style"):
+            try:
+                style = t.get_speaker_style()
+            except Exception:
+                pass
 
         if service is None:
-            if model:
-                coqui_kwargs["model_name"] = model
+            # Create a fresh Azure service
+            service = AzureService(
+                voice=resolved_voice,
+                style=style,
+                role=role,
+                **azure_kwargs,
+            )
+        else:
+            # Update basic properties on a provided service (best-effort)
+            # Not all fields may be mutable depending on manim-voiceover version.
+            try:
+                if resolved_voice:
+                    service.voice = resolved_voice
+                if style is not None:
+                    service.style = style
+                if role is not None:
+                    service.role = role
+                # Apply any extra kwargs as attributes if present
+                for k, v in azure_kwargs.items():
+                    if hasattr(service, k):
+                        setattr(service, k, v)
+            except Exception:
+                # Non-fatal: continue with provided service as-is
+                pass
 
-            service = CoquiService(**coqui_kwargs)
+            print(f"[voice] (existing AzureService) voice={getattr(service, 'voice', None)} style={getattr(service, 'style', None)} role={getattr(service, 'role', None)}")
 
-            # Resolve speaker by name or index
-            if isinstance(speaker, str):
-                try:
-                    idx = list(service.tts.speakers).index(speaker)
-                    service.speaker_idx = idx
-                    try:
-                        service.speaker = service.tts.speakers[idx]
-                    except Exception:
-                        pass
-                except ValueError:
-                    print(f"[configure_voice] WARNING: speaker '{speaker}' not found")
-            elif isinstance(speaker, int):
-                service.speaker_idx = speaker
-                speakers = list(getattr(service.tts, "speakers", [])) or []
-                if 0 <= speaker < len(speakers):
-                    service.speaker = speakers[speaker]
-
-            # Log active configuration
-            active_model = getattr(service.tts, "model_name", None)
-            print(f"[voice] model={active_model}  speaker_name={speaker}")
+        # Log active configuration
+        print(
+            "[voice] Azure configured:"
+            f" voice={getattr(service, 'voice', None)}"
+            f" style={getattr(service, 'style', None)}"
+            f" role={getattr(service, 'role', None)}"
+        )
 
         self._voice_locked = True
         super().set_speech_service(service)
 
-    def set_speech_service(self, service: CoquiService):
+    def set_speech_service(self, service: AzureService):
         """
         Override of `VoiceoverScene.set_speech_service`.
 
