@@ -16,7 +16,6 @@ def test_layout_branch_ids_and_counts_defaults():
         child_count=3,          # ensure 'child1..child3'
         child_labels=None,      # ensure 'child*' instead of label-based IDs
         direction="down",
-        appear="none",
     )
     assert isinstance(res.group, VGroup)
     for key in ("root", "child1", "child2", "child3", "arrow1", "arrow2", "arrow3"):
@@ -39,7 +38,6 @@ def test_layout_branch_direction_up_positions_defaults():
         child_count=2,
         child_labels=None,
         direction="up",
-        appear="none",
     )
     root = res.ids["root"]
     x = res.ids["child1"]

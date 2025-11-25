@@ -39,6 +39,6 @@ def test_transitions_module_importable():
     # Accept either module objects or functions hanging off the package
     has_any = any(
         isinstance(getattr(mod, attr, None), (types.FunctionType, types.ModuleType))
-        for attr in ("fade_in_group", "slide_in", "timing", "Timing")
+        for attr in ("blackhole", "pulsar", "hawking_radiation", "pulsar")
     )
     assert has_any, "No transitions found on adapters.transitions"
