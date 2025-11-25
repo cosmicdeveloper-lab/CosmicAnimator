@@ -1,17 +1,39 @@
+# CosmicAnimator Scenario JSON — Reference
 
-# CosmicAnimator Scenario JSON — Reference (Valid Markdown)
+This document defines the **valid JSON structure** accepted by the CosmicAnimator engine.  
+It serves as a complete **authoring guide** for writing scenario files passed to the runtime.
 
-This document defines the **valid JSON shapes** your generator accepts and **introduces every action and transition** currently supported by the runtime. Examples below are **copy‑pasteable JSON** (no comments).
+Every example shown below is **valid JSON** and can be copy‑pasted directly into your scenario file.
 
 ---
 
-## 1) Top‑Level Forms
+## Table of Contents
 
-A scenario   **object with `script`**.
+1. [Top‑Level Structure](#1-top-level-structure)
+2. [Step Object](#2-step-object)
+3. [Actions Reference](#3-actions-reference)
+   - [render_title](#31-render_title)
+   - [layout_boxes](#32-layout_boxes)
+   - [layout_branch](#33-layout_branch)
+   - [apply_transition](#34-apply_transition)
+4. [Transitions Reference](#4-transitions-reference)
+   - [shine](#41-shine)
+   - [spin](#42-spin)
+   - [blackhole](#43-blackhole)
+   - [hawking_radiation](#44-hawking_radiation)
+   - [shooting_star](#45-shooting_star)
+   - [pulsar](#46-pulsar)
+5. [ID Targeting Rules](#5-id-targeting-rules)
+6. [Complete Example](#6-complete-example)
 
+---
 
+## 1) Top‑Level Structure
 
-### B. Object form
+A scenario file is a **JSON object** with a single top-level field: `script`.
+
+### Example
+
 ```json
 {
   "script": [
@@ -28,7 +50,13 @@ A scenario   **object with `script`**.
 
 ## 2) Step Object
 
-Each step may include a narration `line` and either **one** `action` with `args` **or** multiple `actions` (array executed in order).
+Each step in `script` represents one moment in the animation timeline.
+
+It may include a **narration line** and either:
+- one `action` with `args`, or  
+- multiple `actions` (executed sequentially).
+
+### Example (single action)
 
 ```json
 {
@@ -38,333 +66,326 @@ Each step may include a narration `line` and either **one** `action` with `args`
 }
 ```
 
+### Example (multiple actions)
+
 ```json
 {
   "line": "Do several things in order.",
   "actions": [
     {"name": "layout_boxes"},
-    {"name": "apply_transition", "args": {"name": "highlight_shapes", "target_ids": ["box2"]}}
+    {"name": "apply_transition", "args": {"name": "shine", "target_ids": ["box2"]}}
   ]
 }
 ```
 
 ### Fields
-- **`line`** (string, optional) — Narration. If present and no explicit `narrate` action is included, narration is **implicit** for this step (via your voice service).
-- **`action`** (string, optional) — Single action name (see registry below).
-- **`args`** (object, optional) — Parameters for `action`.
-- **`actions`** (array, optional) — Multiple actions, as `{ "name": "...", "args": { ... } }` entries.
 
-> Targets by ID refer to shapes stored in the internal scene store (`ActionContext.store`).
+| Field | Type | Required | Description |
+|-------|------|-----------|--------------|
+| `line` | string | optional | Narration text. If no explicit `narrate` action is present, narration is implicit. |
+| `action` | string | optional | Name of a single action to perform. |
+| `args` | object | optional | Arguments for the `action`. |
+| `actions` | array | optional | List of `{ "name": "...", "args": { ... } }` objects executed sequentially. |
+
+> Targets in `args` refer to shapes stored in the internal scene store (`ActionContext.store`).
 
 ---
 
-## 3) Actions — Complete Reference
-
-Below is the canonical list of actions exposed by the current generator. (If you add new actions in code, append them here to keep the README in sync.)
+## 3) Actions Reference
 
 ### 3.1 `render_title`
-Renders a prominent HUD title.
+
+Renders a styled **HUD title** using theme-aware typography.  
+Appears with a short **fade-in** animation at the top of the frame.
+
 ```json
 {"name": "render_title", "args": {
-  "text": "CosmicAnimator",
+  "text": "Understanding Async vs Sync",
+  "color": "primary",
+  "font_size": 72,
   "variant": "title",
-  "color": "accent",
-  "font_size": 72
+  "margin": 4,
+  "center": true
 }}
 ```
+
 **Args**
-- `text` (str, required)
-- `variant` (str, optional, e.g. `"title"`)
-- `color` (role/hex, optional)
-- `font_size` (int, optional)
+
+| Name | Type | Default | Description |
+|------|------|----------|-------------|
+| `text` | str | — | Title text content. |
+| `color` | str | `None` | Text/stroke color (theme default if `None`). |
+| `font_size` | float | `None` | Font size override. |
+| `variant` | str | `"title"` | Style variant key for `style_text`. |
+| `style_kwargs` | dict | `None` | Extra style options. |
+| `margin` | float | `4` | Vertical offset from top edge. |
+| `center` | bool | `false` | Horizontally center the title. |
 
 ---
 
 ### 3.2 `layout_boxes`
-Creates a row/column/grid of labeled boxes. Stores each box under a **deterministic ID** (see `id_from_labels` and `id_prefix`).
+
+Creates a **row**, **column**, or **grid** of labeled shapes, optionally connected by arrows or lines.
 
 ```json
 {"name": "layout_boxes", "args": {
   "count": 3,
   "labels": ["Process A", "Process B", "Process C"],
   "direction": "row",
-  "filled": true
+  "connection_type": "arrow",
+  "arrow_color": "muted",
+  "filled": true,
+  "label_position": "down"
 }}
 ```
-**Args**
-- `count` (int, required unless `labels` provided) — number of boxes
-- `labels` (array[str], optional) — if provided and `id_from_labels=true`, IDs are **slugified** labels (e.g., `"Process B"` → `"process_b"`)
-- `direction` (str, optional: `"row"` | `"column"`)
-- `rows`, `cols` (int, optional) — for grid layouts
-- `filled` (bool, optional) — fill shapes instead of outline only
-- `appear` (bool, optional) — animate appearance
-- `appear_direction` (str, optional) — e.g., `"up"`, `"down"`, `"left"`, `"right"`
 
-**Resulting IDs**
-- `box1`, `box2`, `box3`
+**Args**
+
+| Name | Type | Default | Description |
+|------|------|----------|-------------|
+| `shape` | str | `"square"` | Shape type (from registry). |
+| `size` | float | — | Shape size. |
+| `count` | int | `3` | Number of shapes. |
+| `labels` | list[str] | `None` | Labels under/above shapes. |
+| `label_color` | str | `None` | Label text color. |
+| `direction` | str | `"row"` | `"row"`, `"column"`, or `"grid"`. |
+| `rows`, `cols` | int | — | Used when `direction="grid"`. |
+| `spacing` | float | `1.2` | Gap between shapes. |
+| `color` | str | `"primary"` | Base color. |
+| `filled` | bool | `false` | Fill shapes with color. |
+| `connection_type` | str | `None` | `"arrow"`, `"line"`, or `"curved_arrow"`. |
+| `arrow_color` | str | `"muted"` | Connector color. |
+| `connection_labels` | list[str] | `None` | Optional connector labels. |
+| `label_position` | str | `"down"` | `"up"`, `"down"`, `"left"`, `"right"`. |
+| `center_at` | tuple | `(0,0,0)` | Center position. |
+
+**Resulting IDs:** `shape1`, `shape2`, `connector1`, …
 
 ---
 
 ### 3.3 `layout_branch`
-Root → children diagram with connectors.
+
+Creates a **branch diagram** connecting a **root node** to multiple **child nodes**.
+
 ```json
 {"name": "layout_branch", "args": {
-  "root_label": "Server",
-  "child_labels": ["API", "DB", "Cache"],
-  "direction": "row",
-  "spacing": 1.0,
-  "level_gap": 1.4
+  "root_label": "Main Concept",
+  "child_labels": ["Part A", "Part B", "Part C"],
+  "direction": "down",
+  "connection_type": "arrow",
+  "root_color": "primary",
+  "child_color": "secondary",
+  "arrow_color": "muted"
 }}
 ```
-**Args**
-- `root_label` (str, optional; default `"Root"`)
-- `child_labels` (array[str], required)
-- `direction` (str, optional)
-- `spacing`, `level_gap` (float, optional)
 
-**IDs**
-- Root: `root` (or custom via `id`)
-- Children: slugified labels or `node1..nodeN`
+**Args**
+
+| Name | Type | Default | Description |
+|------|------|----------|-------------|
+| `root_shape` | str | `"circle"` | Shape for the root node. |
+| `child_shape` | str | `"square"` | Shape for child nodes. |
+| `child_count` | int | `3` | Number of child nodes. |
+| `direction` | str | `"down"` | `"up"`, `"down"`, `"left"`, `"right"`. |
+| `spacing` | float | `1.2` | Gap between children. |
+| `level_gap` | float | `1.5` | Distance between root and children. |
+| `root_label` | str | `""` | Root label text. |
+| `child_labels` | list[str] | `None` | Labels for child nodes. |
+| `root_color` | str | `"primary"` | Color for root node. |
+| `child_color` | str | `"secondary"` | Color for child nodes. |
+| `connection_type` | str | `"arrow"` | `"arrow"` or `"line"`. |
+| `center_at` | tuple | `(0,0,0)` | Center position of layout. |
+
+**Resulting IDs:** `root`, `child1`, `child2`, `arrow1`, …
 
 ---
 
-### 3.4 `render_loop`
-Draws an orbit/loop arrow around a target.
+### 3.4 `apply_transition`
+
+Applies one or more **visual transitions** to shapes or groups.
+
+
+**Args**
+
+| Name | Type | Description |
+|------|------|--------------|
+| `transition` | str | Single transition to apply. |
+| `args` | dict | Arguments for that transition. |
+| `pipeline` | list[dict] | Sequence of transitions to chain. |
+| `target_ids` | list[str] | IDs of stored objects to target. |
+| `target_id` | str | Shortcut for one target. |
+
+---
+
+## 4) Transitions Reference
+
+### 4.1 `shine`
+
+Creates a **pulsing glow** around targets using transparent bands.
+
 ```json
-{"name": "render_loop", "args": {
-  "target_id": "box1",
-  "span_degrees": 300,
-  "revolutions": 1,
-  "run_time": 1.2
-}}
+{
+  "name": "apply_transition",
+  "args": {
+    "pipeline": [
+      {
+        "name": "shine"
+      }
+    ],
+    "target_ids": [
+      "shape1",
+      "shape2"
+    ]
+  }
+}
 ```
-**Args**
-- `target_id` (str, required)
-- `span_degrees` (float, optional, default `360`)
-- `revolutions` (float, optional, default `1`)
-- `run_time` (float, optional)
 
----
+### 4.2 `spin`
 
+Rotates one or more targets continuously for a fixed duration.
 
-### 3.5 `apply_transition`
-Apply a **single transition** or a **pipeline** to one/many targets by ID.
+```json
+{
+  "name": "apply_transition",
+  "args": {
+    "pipeline": [
+      {
+        "name": "spin"
+      }
+    ],
+    "target_ids": [
+      "shape1",
+      "shape2"
+    ]
+  }
+}
+```
 
-**Single transition**
+### 4.3 `blackhole`
+
+A **cosmic collapse** transition pulling the targets into a spinning horizon.
+
+```json
+{
+  "name": "apply_transition",
+  "args": {
+    "pipeline": [
+      {
+        "name": "blackhole"
+      }
+    ],
+    "target_ids": [
+      "shape1",
+      "shape2"
+    ]
+  }
+}
+```
+
+### 4.4 `hawking_radiation`
+
+Simulates **energy emission** from a fading targets.
+
+```json
+{
+  "name": "apply_transition",
+  "args": {
+    "pipeline": [
+      {
+        "name": "hawking_radiation"
+      }
+    ],
+    "target_ids": [
+      "shape1",
+      "shape2"
+    ]
+  }
+}
+```
+
+### 4.5 `shooting_star`
+
+A **cinematic streak** crossing the scene — ideal for title reveals.
+
 ```json
 {"name": "apply_transition", "args": {
-  "name": "ghost_shapes",
-  "target_ids": ["box2"],
-  "run_time": 0.8
+  "name": "shooting_star"
 }}
 ```
 
-**Pipeline**
+### 4.6 `pulsar`
+
+Creates **DNA‑like glowing strands** around a target.
+
 ```json
-{"name": "apply_transition", "args": {
-  "pipeline": [
-    {"name": "ripple_effect"},
-    {"name": "highlight_shapes", "args": {"color": "accent"}}
-  ],
-  "target_ids": ["box2"]
-}}
+{
+  "name": "apply_transition",
+  "args": {
+    "pipeline": [
+      {
+        "name": "blackhole"
+      }
+    ],
+    "target_id": "shape1"
+  }
+}
 ```
 
-**Args (shared)**
-- `target_ids` (array[str], required for most transitions)
-- `transition` (str, required if not using `pipeline`)
-- `pipeline` (array[TransitionSpec], required if not using `transition`)
-- `run_time` (float, optional, default depends on transition)
-- `lag_ratio` (float, optional, for groups)
+---
+
+## 5) ID Targeting Rules
+
+- Most layout actions automatically assign IDs to created shapes.  
+- Use these IDs in later steps for transitions or further modifications.
+
+| Action | ID Pattern |
+|---------|-------------|
+| `layout_boxes` | `shape1`, `shape2`, `connector1`, … |
+| `layout_branch` | `root`, `child1`, `arrow1`, … |
+
+Example usage:
+
+```json
+{
+  "name": "apply_transition",
+  "args": {
+    "pipeline": [
+      {
+        "name": "blackhole"
+      }
+    ],
+    "target_ids": [
+      "shape1",
+      "shape2"
+    ]
+  }
+}
+```
 
 ---
 
-## 4) Transitions — Complete Reference
+## 6) Complete Example
 
-The following names are recognized by `apply_transition`. Each transition supports the generic timing args (`run_time`, `lag_ratio`, `ease`) unless noted otherwise.
-
-### 4.1 `highlight_shapes`
-Temporarily highlight one or more shapes with overlays (fill, glow, or both).
-
-**Args**
-- `color` (str, default `"auto"`) — theme role, hex, or `"auto"` (per-part)
-- `mode` (str, default `"both"`) — `"fill"`, `"glow"`, or `"both"`
-- `fill_opacity` (float, default `0.60`)
-- `scale` (float, default `1.04`) — slight enlargement
-- `include_text` (bool, default `false`)
-- `in_time` (float, default `0.28`)
-- `hold_time` (float, default `0.55`)
-- `out_time` (float, default `0.30`)
-- `lag_ratio` (float, default `0.08`)
-- `pulse` (bool, default `false`)
-- `pulse_times` (int, default `2`)
-- `pulse_scale` (float, default `1.06`)
-- `pulse_period` (float, default `0.35`)
-
----
-
-### 4.2 `focus_on_shape`
-Dim everything except the given targets, lifting them visually.
-
-**Args**
-- `include_text` (bool, default `true`)
-- `backdrop_role` (str, default `"#000000"`) — fill color for backdrop
-- `backdrop_opacity` (float, default `0.62`)
-- `in_time` (float, default `0.35`)
-- `hold_time` (float, default `0.60`)
-- `out_time` (float, default `0.30`)
-- `lag_ratio` (float, default `0.0`)
-
----
-
-### 4.3 `ghost_shapes`
-Temporarily dim stroke layers, then restore.
-
-**Args**
-- `dim_opacity` (float, default `0.1`)
-- `run_time` (float, default `0.6`)
-- `pause_ratio` (float, default `0.12`)
-- `rate_func` (callable, optional)
-- `min_stroke` (float, default `0.2`)
-- `exclude_filled` (bool, default `false`)
-
----
-
-### 4.4 `orbit_around`
-Orbit an object around a point or another object.
-
-**Args**
-- `center` (array, optional) — explicit orbit center
-- `around` (VMobject, optional) — orbit around another object
-- `radius` (float, optional)
-- `start_angle` (float, optional)
-- `rotations` (float, default `1.0`)
-- `clockwise` (bool, default `false`)
-- `run_time` (float, default `2.0`)
-- `rate_func` (callable, default `linear`)
-- `rotate_self` (bool, default `false`)
-
----
-
-### 4.5 `shake`
-Shake an object with optional color flash.
-
-**Args**
-- `amplitude` (float, default `0.3`)
-- `shakes` (int, default `2`)
-- `run_time` (float, default `0.6`)
-- `axis` (str, default `"horizontal"`) — `"horizontal"` | `"vertical"`
-- `color_change` (bool, default `true`)
-- `color` (Manim color, default `RED`)
-
----
-
-### 4.6 `ripple_effect`
-Concentric rings expanding/contracting from targets.
-
-**Args**
-- `color` (str, default `"auto"`)
-- `rings` (int, default `3`)
-- `ring_gap` (float, default `0.25`)
-- `stroke_width` (float, default `4.0`)
-- `base_opacity` (float, default `0.9`)
-- `from_edge` (bool, default `true`)
-- `center_override` (array, optional)
-- `inward` (bool, default `false`)
-- `fade_in` (bool, default `false`)
-- `fade_out` (bool, default `true`)
-- `in_time` (float, default `0.10`)
-- `expand_time` (float, default `0.8`)
-- `hold_time` (float, default `0.0`)
-- `out_time` (float, default `0.25`)
-- `ring_lag` (float, default `0.12`)
-- `target_lag` (float, default `0.05`)
-
----
-
-### 4.7 `zoom_to`
-Zoom camera frame to a target, hold, then optionally restore.
-
-**Args**
-- `zoom` (float, default `1.8`) — factor (>1 zooms in)
-- `in_time` (float, default `0.9`)
-- `hold_time` (float, default `0.5`)
-- `out_time` (float, default `0.8`)
-- `rate_func` (callable, default `smooth`)
-
----
-
-### 4.8 `zoom_out`
-Zoom out from current view, hold, then optionally restore.
-
-**Args**
-- `zoom` (float, default `1.8`)
-- `in_time` (float, default `0.9`)
-- `hold_time` (float, default `0.5`)
-- `out_time` (float, default `0.8`)
-- `rate_func` (callable, default `smooth`)
-
----
-
-### 4.9 `pan_to`
-Pan camera center smoothly toward a target.
-
-**Args**
-- `run_time` (float, default `1.0`)
-- `rate_func` (callable, default `smooth`)
-- `direction_step` (float, default `2.0`)
-- `direction` (str, default `"left"`) — `"left"`, `"right"`, `"up"`, `"down"`
-
-
-## 5) IDs & Targeting — Rules
-
-- Most layout actions store created objects under IDs:
-  - Default pattern: `box1`, `box2`, ...
-- Use these IDs with `target_ids` in `apply_transition` and other actions needing a target.
-
----
-
-## 6) Validated Example
 ```json
 {
   "script": [
     {
       "line": "Welcome to CosmicAnimator!",
       "actions": [
-        {
-          "name": "render_title",
-          "args": {
-            "text": "CosmicAnimator",
-            "color": "accent"
-          }
-        }
+        {"name": "render_title", "args": {"text": "CosmicAnimator"}}
       ]
     },
     {
-      "line": "Here are three processes. Highlight the middle process.",
+      "line": "Here are three processes.",
       "actions": [
-        {
-          "name": "layout_boxes",
-          "args": {
-            "count": 3,
-            "labels": ["Process A", "Process B", "Process C"],
-            "direction": "row",
-            "filled": true
-          }
-        },
-        {
-          "name": "apply_transition",
-          "args": {
-            "pipeline": [
-              {"name": "highlight_shapes", "args": {"color": "accent"}}
-            ],
-            "target_ids": ["box2"]
-          }
-        }
+        {"name": "layout_boxes", "args": {"labels": ["Process A", "Process B", "Process C"]}},
+        {"name": "apply_transition", "args": {"pipeline": [{"name": "blackhole"}], "target_id": "shape2"}}
       ]
     }
   ]
 }
 ```
 
-This will create IDs `box1`, `box2`, `box3`, so the transition can reliably target `"box2"`.
+This will create IDs `shape1`, `shape2`, `shape3`, allowing transitions to target them directly.
+
+---
