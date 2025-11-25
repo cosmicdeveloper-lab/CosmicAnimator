@@ -1,26 +1,30 @@
 # src/cosmicanimator/adapters/style/style_helpers.py
 
 """
-Style helper utilities for CosmicAnimator.
+Style helper utilities for CosmicAnimator (theme-agnostic).
 
 This module provides:
 - Hex detection (`is_hex_color`)
-- Role/hex resolver (`resolve_role_or_hex`)
-- Glow layer builder (`add_glow_layers`)
+- Role/hex resolver (`resolve_role_or_hex`) with optional external resolver
+- Color transforms (`brighten_color`, `darken_color`)
+- Glow layer builder (`add_glow_layers`) — defaults via function params
+- Plate depth stack builder (`build_plate_stack`) — defaults via function params
 
-All functions build on `core.theme.current_theme` to ensure consistency
-with the active theme (palette, roles, strokes, glow presets).
+Design goals:
+- No dependency on `theme.py`.
 """
 
 from __future__ import annotations
-from typing import Optional, Sequence, Iterable, Tuple, Dict
-from manim import VMobject, VGroup
+from typing import Dict, Iterable, Optional, Sequence, Tuple
+from manim import ManimColor, OUT, VGroup, VMobject
+from manim.utils.color import color_to_rgb, rgb_to_color
 from cosmicanimator.core.theme import current_theme as t
 
 
 # ---------------------------------------------------------------------------
 # Color helpers
 # ---------------------------------------------------------------------------
+
 
 def is_hex_color(value: str) -> bool:
     """
@@ -70,8 +74,66 @@ def resolve_role_or_hex(name_or_hex: str) -> Dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Color transforms (used for glow variation)
+# ---------------------------------------------------------------------------
+
+
+def brighten_color(hex_color: str, factor: float = 0.25) -> str:
+    """
+    Lighten a hex color by mixing it toward white.
+
+    Parameters
+    ----------
+    hex_color:
+        Input hex string (e.g. "#085C83").
+    factor:
+        Amount of lightening. 0 = no change, 1 = pure white.
+
+    Returns
+    -------
+    str
+        Lightened hex string.
+    """
+    hex_color = hex_color.lstrip("#")
+    r, g, b = [int(hex_color[i: i + 2], 16) for i in (0, 2, 4)]
+
+    r = int(r + (255 - r) * factor)
+    g = int(g + (255 - g) * factor)
+    b = int(b + (255 - b) * factor)
+
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def darken_color(hex_color: str, factor: float = 0.25) -> str:
+    """
+    Darken a hex color by mixing it toward black.
+
+    Parameters
+    ----------
+    hex_color:
+        Input hex string (e.g. "#22D3EE").
+    factor:
+        Amount of darkening. 0 = no change, 1 = pure black.
+
+    Returns
+    -------
+    str
+        Darkened hex string.
+    """
+    hex_color = hex_color.lstrip("#")
+    r, g, b = [int(hex_color[i: i + 2], 16) for i in (0, 2, 4)]
+
+    r = int(r * (1 - factor))
+    g = int(g * (1 - factor))
+    b = int(b * (1 - factor))
+
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+# ---------------------------------------------------------------------------
 # Glow helpers
 # ---------------------------------------------------------------------------
+
 
 def _normalize_bands(bands: Iterable) -> list[Tuple[float, float]]:
     """
@@ -80,7 +142,7 @@ def _normalize_bands(bands: Iterable) -> list[Tuple[float, float]]:
     Accepts:
     - list[tuple(width_mul, opacity)]
     - list[dict{"width_mul"|"width", "opacity"}]
-    - Any structure returned by `t.get_glow(...)`.
+    - Any structure returned by a caller
 
     Returns
     -------
@@ -98,6 +160,64 @@ def _normalize_bands(bands: Iterable) -> list[Tuple[float, float]]:
     return normalized
 
 
+def build_plate_stack(
+    base: VMobject,
+    *,
+    depth_layers: int = 5,
+    layer_gap: float = 0.03,
+    shade_bias: float = 0.02,
+    stroke_color: str | None = None,
+    stroke_opacity: float = 0.55,
+    fill_opacity: float = 0.0,
+    stroke_width: float = 10.0,
+    plate_stroke_scale: float = 0.8,
+    shift_vec=None,
+) -> VGroup:
+    """
+    Build a darker, stepped 'plate' stack behind any VMobject.
+
+    Darkens the provided stroke color progressively by `shade_bias`, shifts each
+    layer by `layer_gap` along `shift_vec` (default: -OUT), and uses a slightly
+    thinner stroke so edges never overtake the top object.
+
+    Returns
+    -------
+    VGroup
+        The stack of plate layers (does NOT include the original `base`).
+    """
+    if shift_vec is None:
+        shift_vec = -OUT
+
+    # Choose the color we darken from
+    if stroke_color is None:
+        try:
+            base_stroke = base.get_stroke_color()
+            stroke_hex = base_stroke.to_hex() if hasattr(base_stroke, "to_hex") else str(base_stroke)
+        except Exception:
+            stroke_hex = "#FFFFFF"
+    else:
+        stroke_hex = stroke_color
+
+    # Effective stroke width for plate layers (no theme fallback)
+    plate_width = float(stroke_width) * float(plate_stroke_scale)
+
+    r, g, b = color_to_rgb(ManimColor(stroke_hex))
+    layers = VGroup()
+
+    for i in range(1, depth_layers + 1):
+        fade = (i / depth_layers) * float(shade_bias)
+        darker = rgb_to_color((r * (1 - fade), g * (1 - fade), b * (1 - fade)))
+
+        layer = base.copy()
+        # Keep fill transparent by default to avoid hazing
+        layer.set_fill(opacity=float(fill_opacity))
+        layer.set_stroke(color=darker, opacity=float(stroke_opacity), width=plate_width)
+        layer.shift(i * float(layer_gap) * shift_vec)
+        layers.add(layer)
+
+    return layers
+
+
 def add_glow_layers(
     base: VMobject,
     *,
@@ -106,39 +226,67 @@ def add_glow_layers(
     count: int = 4,
     spread: float = 2.0,
     max_opacity: float = 0.20,
+    relative_to_stroke: bool = False,
+    base_width_override: Optional[float] = None,
+    # theme-free width defaults live here
+    normal_width: float = 7.0,
+    thick_width: float = 10.0,
 ) -> VGroup:
     """
-    Generate multiple stroke-only copies of a base VMobject to simulate glow.
+    Build stroke-only glow layers around a base VMobject.
+
+    Creates progressively larger, more transparent outlines to simulate a
+    glowing aura. Layers are simple copies of `base` with increasing stroke
+    widths and decreasing opacities.
 
     Parameters
     ----------
     base:
-        Any Manim VMobject to apply glow around.
+        The original Manim VMobject to surround with glow layers.
     glow_color:
-        Color override for the glow (role name or hex).
-        If None, attempts to reuse the base stroke color, with fallback to theme "primary".
+        Hex or role string. If None, uses the base object's stroke color.
     bands:
-        Explicit list of (width_multiplier, opacity) pairs.
-        If provided, this overrides `count`/`spread`/`max_opacity`.
+        Optional explicit list of glow band definitions, where each band is a
+        tuple ``(width_multiplier, opacity)``. If provided, overrides all
+        automatic glow band generation.
     count:
-        Number of glow layers if `bands` not provided.
+        Number of glow bands to generate when `bands` is not given.
+        Defaults to 4.
     spread:
-        Maximum stroke expansion multiplier (controls how far the glow extends).
+        Total width spread multiplier controlling how far the outermost band
+        extends beyond the base stroke. Defaults to 2.0.
     max_opacity:
-        Peak opacity for the innermost glow layer.
+        Opacity of the innermost glow layer. Subsequent layers are scaled down
+        from this value. Defaults to 0.20.
+    relative_to_stroke:
+        If True, each glow band’s width is relative to the base object's current
+        stroke width (or `base_width_override` if provided). Otherwise it uses
+        fixed theme-free widths (`normal_width` and `thick_width`).
+    base_width_override:
+        Manually override the stroke width used as the baseline when
+        `relative_to_stroke=True`. Has no effect if `relative_to_stroke=False`.
+    normal_width:
+        Fallback stroke width for non-relative mode (theme-independent).
+        Defaults to 7.0.
+    thick_width:
+        Fallback “thick” stroke width for non-relative mode (theme-independent).
+        Defaults to 10.0.
 
     Returns
     -------
     VGroup
-        Group of glow layers (does NOT include the base shape).
+        Group of glow layers (each a VMobject copy with adjusted stroke width
+        and opacity). Does *not* include the original `base` object.
     """
     layers = VGroup()
 
-    # Base stroke width (anchor for expansion)
-    base_w = float(t.get_stroke("normal"))
+    if relative_to_stroke:
+        base_w = float(base_width_override) if base_width_override is not None else float(base.get_stroke_width())
+        thick = base_w
+    else:
+        base_w = float(normal_width)
+        thick = float(thick_width)
 
-    # Extra thickness budget ensures glow is visible even on thick strokes
-    thick = float(t.get_stroke("thick"))
     extra = max(thick - base_w, base_w * 0.75)
 
     # Resolve glow color
@@ -148,26 +296,21 @@ def add_glow_layers(
         try:
             glow_hex = base.get_stroke_color().to_hex()
         except Exception:
-            glow_hex = resolve_role_or_hex("primary")["stroke"]
+            glow_hex = "#FFFFFF"
 
     # Resolve or compute glow bands
     if bands is None:
-        preset = _normalize_bands(t.get_glow("neon"))
-        if preset:
-            bands = preset
+        steps = max(1, int(count))
+        if steps == 3 and abs(max_opacity - 0.20) < 1e-6 and abs(spread - 2.0) < 1e-6:
+            bands = [(0.8, 0.10), (1.6, 0.07), (2.4, 0.04)]
         else:
-            # Default fallback heuristic
-            steps = max(1, int(count))
-            if steps == 3 and abs(max_opacity - 0.20) < 1e-6 and abs(spread - 2.0) < 1e-6:
-                bands = [(0.8, 0.10), (1.6, 0.07), (2.4, 0.04)]
-            else:
-                bands = [
-                    (
-                        i / steps * float(spread),
-                        float(max_opacity) * (1.0 - 0.75 * (i / max(1, steps - 1))),
-                    )
-                    for i in range(1, steps + 1)
-                ]
+            bands = [
+                (
+                    i / steps * float(spread),
+                    float(max_opacity) * (1.0 - 0.75 * (i / max(1, steps - 1))),
+                )
+                for i in range(1, steps + 1)
+            ]
     else:
         bands = list(bands)
 

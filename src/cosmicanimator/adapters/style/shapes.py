@@ -5,116 +5,84 @@ Shape styling helpers for CosmicAnimator.
 
 Provides composable utilities to style any Manim shape (Circle, Square, etc.)
 with neon-like aesthetics:
-- Fill + stroke colors pulled from the active theme.
-- Optional glow layers (inner + outer).
-- Automatic scaling from the theme’s base scale.
+
+- Fill and stroke colors pulled from the active theme.
+- Optional glow layers (inner and outer).
+- Optional plate stack and soft shadow.
+- Automatic scaling based on the theme’s base scale.
 
 Depends on:
 - `current_theme` (palette, stroke widths, base scale).
-- `style_helpers` (`resolve_role_or_hex`, `add_glow_layers`).
+- `style_helpers` (`resolve_role_or_hex`, `add_glow_layers`, etc.).
 """
 
 from __future__ import annotations
-from typing import Dict, Any, Optional
-from manim import VMobject, VGroup
+from typing import Any, Dict, Optional
+from manim import (
+    VMobject, Square, Circle, Triangle,
+    VGroup,
+    OUT,
+    DOWN,
+    RIGHT,
+)
 from cosmicanimator.core.theme import current_theme as t
-from .style_helpers import resolve_role_or_hex, add_glow_layers
-
-
-# ---------------------------------------------------------------------------
-# Color transforms (used for glow variation)
-# ---------------------------------------------------------------------------
-
-def _brighten_color(hex_color: str, factor: float = 0.25) -> str:
-    """
-    Lighten a hex color by mixing it toward white.
-
-    Parameters
-    ----------
-    hex_color:
-        Input hex string (e.g. "#085C83").
-    factor:
-        Amount of lightening. 0 = no change, 1 = pure white.
-
-    Returns
-    -------
-    str
-        Lightened hex string.
-    """
-    hex_color = hex_color.lstrip("#")
-    r, g, b = [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
-
-    r = int(r + (255 - r) * factor)
-    g = int(g + (255 - g) * factor)
-    b = int(b + (255 - b) * factor)
-
-    return f"#{r:02X}{g:02X}{b:02X}"
-
-
-def _darken_color(hex_color: str, factor: float = 0.25) -> str:
-    """
-    Darken a hex color by mixing it toward black.
-
-    Parameters
-    ----------
-    hex_color:
-        Input hex string (e.g. "#22D3EE").
-    factor:
-        Amount of darkening. 0 = no change, 1 = pure black.
-
-    Returns
-    -------
-    str
-        Darkened hex string.
-    """
-    hex_color = hex_color.lstrip("#")
-    r, g, b = [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
-
-    r = int(r * (1 - factor))
-    g = int(g * (1 - factor))
-    b = int(b * (1 - factor))
-
-    return f"#{r:02X}{g:02X}{b:02X}"
+from .style_helpers import (
+    resolve_role_or_hex,
+    add_glow_layers,
+    darken_color,
+    brighten_color,
+    build_plate_stack,
+)
 
 
 # ---------------------------------------------------------------------------
 # Styling entry point
 # ---------------------------------------------------------------------------
 
+
 def style_shape(
     shape: VMobject,
     *,
-    color: str = "primary",          # theme role or hex
-    stroke: Optional[str] = None,    # theme role or hex (overrides fill stroke)
+    color: str = "primary",
+    stroke: Optional[str] = None,
     glow: bool = True,
     scale: Optional[float] = None,
     fill_opacity: float = 0.0,
+    glow_inner: bool = False,
+    glow_outer: bool = True,
+    plate: bool = True,
+    shadow: bool = False,
 ) -> VGroup:
     """
-    Apply CosmicAnimator's neon style (fill, stroke, glow) to a shape.
+    Apply full theme-based styling to a shape (fill, stroke, glow, plate, shadow).
 
     Parameters
     ----------
     shape:
-        Any Manim VMobject (e.g. Circle, Square).
+        Base Manim VMobject (e.g., Circle, Square) to style.
     color:
-        Theme role or hex for fill/stroke/glow triplet.
+        Fill role or hex string (default: "primary").
     stroke:
-        Optional override role/hex for stroke color only.
+        Optional stroke role or hex color. Defaults to same as `color`.
     glow:
-        Whether to add inner + outer glow layers.
+        Whether to add glow layers at all. Defaults to True.
     scale:
-        Optional scale multiplier. If None, uses theme base_scale.
+        Optional scaling factor. If None, uses `t.base_scale()`.
     fill_opacity:
-        Opacity of the fill color (0.0 = transparent).
+        Opacity for the main fill color (0.0 = fully transparent).
+    glow_inner:
+        Whether to include a tight inner glow (usually darker tone).
+    glow_outer:
+        Whether to include a broader outer glow (usually brighter tone).
+    plate:
+        Whether to add plate-style stacked layers behind the shape.
+    shadow:
+        Whether to add a soft black offset shadow behind the plate.
 
     Returns
     -------
     VGroup
-        Composite group containing:
-        - optional inner glow
-        - optional outer glow
-        - styled shape
+        Group containing the styled shape (and optional glow, plate, shadow).
     """
     cfg: Dict[str, Any] = {
         "color": color,
@@ -124,7 +92,7 @@ def style_shape(
         "fill_opacity": fill_opacity,
     }
 
-    # Resolve fill & stroke
+    # Resolve fill and stroke colors
     fill_triplet = resolve_role_or_hex(str(cfg["color"]))
     if cfg["stroke"] is not None:
         stroke_triplet = resolve_role_or_hex(str(cfg["stroke"]))
@@ -135,7 +103,7 @@ def style_shape(
     fill_hex = fill_triplet["color"]
     glow_hex = fill_triplet["glow"]
 
-    # Apply fill + stroke to the base shape
+    # Apply fill and stroke to the base shape
     shape.set_fill(color=fill_hex, opacity=float(cfg["fill_opacity"]))
     shape.set_stroke(
         color=stroke_hex,
@@ -148,22 +116,49 @@ def style_shape(
         shape.scale(float(s))
 
     parts = []
-    if bool(cfg["glow"]):
-        # Inner glow: darker + closer
-        inner = add_glow_layers(
-            shape.copy(),
-            glow_color=_darken_color(glow_hex, 0.50),
-            bands=[(0.5, 0.60), (0.9, 0.35), (1.3, 0.18)],
-        )
-        parts.append(inner)
 
-        # Outer glow: brighter + softer
-        outer = add_glow_layers(
-            shape.copy(),
-            glow_color=_brighten_color(glow_hex, 0.70),
-            bands=[(1.0, 0.13), (2.0, 0.10), (3.0, 0.07), (4.0, 0.04), (8.0, 0.02)],
-        )
-        parts.append(outer)
+    # Add glow layers (outer and/or inner)
+    if glow and (glow_inner or glow_outer):
+        if glow_outer:
+            parts.append(
+                add_glow_layers(
+                    shape.copy(),
+                    glow_color=brighten_color(glow_hex, 0.5),
+                    bands=t.get_glow("outer_shape"),
+                )
+            )
+        if glow_inner:
+            parts.append(
+                add_glow_layers(
+                    shape.copy(),
+                    glow_color=darken_color(glow_hex, 0.40),
+                    bands=t.get_glow("inner_tight"),
+                )
+            )
 
-    parts.append(shape)
+    # Add plate and shadow
+    if plate:
+        plate_cfg = t.get_plate("shape")
+        layers = build_plate_stack(shape, stroke_color=stroke_hex, **plate_cfg)
+        parts.append(layers)
+
+        styled_top = VGroup(*parts, shape)
+        styled_top.scale(1.002)
+        plate_group = VGroup(layers, styled_top)
+
+        if shadow:
+            sh = shape.copy()
+            sh.set_fill(opacity=0.0)
+            sh.set_stroke(
+                color="#000000",
+                opacity=0.35,
+                width=t.get_stroke("extra_thick"),
+            )
+            sh.scale(1.05)
+            sh.shift(0.25 * DOWN + 0.25 * RIGHT + 0.8 * OUT)
+            return VGroup(sh, plate_group)
+
+        return plate_group
+
+    # Fallback (only glow layers)
     return VGroup(*parts)
